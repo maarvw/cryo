@@ -74,3 +74,9 @@ install(
 )
 
 add_subdirectory(external/fe)
+
+include(CTest)
+if(BUILD_TESTING)
+    add_subdirectory(external/fe/external/doctest)
+    add_subdirectory(tests)
+endif()

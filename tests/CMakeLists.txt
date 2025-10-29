@@ -1,0 +1,12 @@
+add_executable(cryo-test)
+target_sources(cryo-test
+    PRIVATE
+        test.cpp
+)
+target_link_libraries(cryo-test
+    PRIVATE
+        cryo
+        doctest::doctest
+)
+include(../external/fe/external/doctest/scripts/cmake/doctest.cmake)
+doctest_discover_tests(cryo-test)
