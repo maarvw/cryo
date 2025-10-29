@@ -1,0 +1,3 @@
+[submodule "external/fe"]
+	path = external/fe
+	url = git@github.com:leissa/fe.git
