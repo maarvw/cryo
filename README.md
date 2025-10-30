@@ -1,7 +1,7 @@
 ## Building
 
 ```
-git clone --recurse-submodules git@gitlab.gwdg.de:marvindavid.wagner/forschungspraktikum.git
+git clone --recurse-submodules git@github.com:maarvw/cryo.git
 ```
 
 
