@@ -1,1 +1,8 @@
 build
+cmake*
+CMakeCache.txt
+compile_commands.json
+*.cmake
+CMakeFiles
+DartConfiguration.tcl
+Makefile
