@@ -1,0 +1,5 @@
+Arena 4 0.00113863
+add-list 1 0.00509898
+adding-stuff 2 0.00233732
+constructor-list 2 0.00228854
+---
