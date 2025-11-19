@@ -40,11 +40,51 @@ TEST_CASE("constructor-list") {
 
 TEST_CASE("string-add-primitive") {
     cryo::rbtree knecht1 = cryo::rbtree<string>("hallo");
-    knecht1.add_primitive("hi");
+    //knecht1.add_primitive("hi");
+}
+
+TEST_CASE("structs") {
+    struct point {
+        int x, y;
+    };
+    cryo::rbtree<point> punkte = cryo::rbtree<point>();
+    punkte.add({1,2});
+}
+
+TEST_CASE("char-pointers"){
+    cryo::rbtree knecht1 = cryo::rbtree<char*>();
+    char k = 'a';
+    cryo::rbtree knecht2 = knecht1.add(&k);
 }
 
 TEST_CASE("string-add-persistent") {
     cryo::rbtree knecht1 = cryo::rbtree<string>("hallo");
     cryo::rbtree knecht2 = knecht1.add("hi");
     CHECK(knecht2[0]=="hallo");
+}
+
+TEST_CASE("structs-with-string") {
+    struct point2 {
+        int x, y;
+        string s;
+    };
+    cryo::rbtree<point2> punkte = cryo::rbtree<point2>({1,2, "hi"});
+    punkte.add({3,4, "hii"});
+}
+
+TEST_CASE("string-add-persistent-insert") {
+    cryo::rbtree knecht1 = cryo::rbtree<string>({"hallo","a", "b", "c"});
+    cryo::rbtree knecht2 = knecht1.insert(1, "kek");
+}
+
+TEST_CASE("32 strings") {
+    cryo::rbtree knecht = cryo::rbtree<string>({"s","s","s","s","s","s","s","s","s","s","s","s","s","s","s","s","s","s","s","s","s","s","s","s"});
+    knecht.insert(17, "a");
+}
+
+
+TEST_CASE("vectors") {
+    cryo::rbtree<vector<int>> k1 = cryo::rbtree<vector<int>>({1,2,3,4,5});
+    cryo::rbtree<vector<int>> k2 = k1.add({5,4,2});
+    CHECK(k2[1][0]==5);
 }

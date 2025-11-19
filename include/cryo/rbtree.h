@@ -23,20 +23,18 @@ private:
 
     /*node of the rbtree*/
     struct node {
+        /*allocator for the leafs*/
         static fe::Arena::Allocator<T> leafallocator;
+        /*allocator for the inner nodes*/
         static fe::Arena::Allocator<node*> innerallocator;
-        T* leaf;// = leafallocator.allocate(M);
-        
-        //node** inner = innerallocator.allocate(M);
+
+        /*array for the leaf data elements (only for leafs)*/
+        T* leaf;
+        /*array of pointers to child nodes (only for inner nodes)*/
         node** inner;
         
-        //muss sagt ki
-        node() : leaf(leafallocator.allocate(M)), inner(innerallocator.allocate(M)) {
-            for (int i = 0; i < M; ++i) {
-                inner[i] = nullptr;
-            }
-        }
-        //T leaf[M];
+        /*default constructor using arena allocators*/ 
+        node() : leaf(leafallocator.allocate(M)), inner(innerallocator.allocate(M)) {}
     };
 
     /*root node of the tree, unique to every persistent "copy"*/
@@ -64,7 +62,9 @@ private:
     /*adds element in non-persistent way, not intended to be used outside of constructors*/
     void add_primitive(T elem) {
         size++;
+        std::cout<<"new elem, new size="<<size<<std::endl;
         if (size>=capacity) { //new root
+            std::cout<<"new cap"<<std::endl;
             int s = shift;
             node* newroot = new node; 
             newroot->inner[0]=root;
@@ -77,7 +77,6 @@ private:
             }
             newnode->leaf[0]=elem;
             root = newroot;
-            size++;
             shift+=B;
             capacity*=M;
             return;
@@ -101,12 +100,27 @@ private:
       for the new persistent "copy"*/
     node* insert_at_index(T elem, node* cur, int s, size_t i) {
         if (s==0) {
+            std::cout<<"insert base case"<<std::endl;
             //copy & change leaf
             node* newleaf = new node;
-            std::copy_n(cur->leaf, M, newleaf->leaf);
-            newleaf->leaf[i%M]=elem;
+            // std::cout<<"copying"<<std::endl;
+            // std::copy_n(cur->leaf, M, newleaf->leaf);
+            // std::cout<<"changing"<<std::endl;
+            // newleaf->leaf[i%M]=elem;
+            for (int j = 0; j < M; j++) {
+                if (j == i % M) {
+                    std::cout<<"j=="<<i<<std::endl;
+                    newleaf->leaf[j] = elem;  // Assignment instead of copy
+                } else {
+                    std::cout<<"j="<<j<<std::endl;
+                    newleaf->leaf[j] = cur->leaf[j];  // Copy existing elements
+                }
+            }
+            std::cout<<"loop over"<<std::endl;
+            std::cout<<"returning"<<std::endl;
             return newleaf;
         }
+        std::cout<<"add with s="<<s<<std::endl;
         node* newinner = new node;
         std::copy_n(cur->inner, M, newinner->inner);
         if (cur->inner[(i>>s)%M]==NULL) { //need to build new subtree of inners
@@ -148,6 +162,7 @@ public:
       returns a persistent "copy" of the previous tree*/
     rbtree add(T elem) {
         if (size+1 >= capacity) { //tree full, need to expand depth
+            std::cout<<"add base case"<<std::endl;
             int s = shift;
             node* newroot = new node; 
             newroot->inner[0]=root;
@@ -162,6 +177,7 @@ public:
             return rbtree(newroot, size+1, shift+B, capacity*M);
         }
 
+        std::cout<<"add recursive case"<<std::endl;
         node* newroot = insert_at_index(elem, root, shift, size);
         return rbtree(newroot, size+1, shift, capacity);
     }
