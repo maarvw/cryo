@@ -37,3 +37,14 @@ TEST_CASE("constructor-list") {
     CHECK(k1[7] == 8);
     CHECK(k1.getSize() == 8);
 }
+
+TEST_CASE("string-add-primitive") {
+    cryo::rbtree knecht1 = cryo::rbtree<string>("hallo");
+    knecht1.add_primitive("hi");
+}
+
+TEST_CASE("string-add-persistent") {
+    cryo::rbtree knecht1 = cryo::rbtree<string>("hallo");
+    cryo::rbtree knecht2 = knecht1.add("hi");
+    CHECK(knecht2[0]=="hallo");
+}

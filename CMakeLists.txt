@@ -16,6 +16,8 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 add_library(cryo INTERFACE)
+target_link_libraries(cryo PUBLIC INTERFACE fe)
+
 
 target_sources(cryo
     INTERFACE

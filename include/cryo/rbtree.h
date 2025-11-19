@@ -2,7 +2,7 @@
 #include <initializer_list>
 #include <stdexcept>
 #include <iostream>
-//#include "../../external/fe/include/fe/arena.h"
+#include "../../external/fe/include/fe/arena.h"
 namespace cryo {
 
 /*radix balanced tree with persistent functionality, 
@@ -11,13 +11,32 @@ template<typename T>
 class rbtree {
 
 private:
+    /*amount of branching bits used for the index bitshifts*/
     static const int B = 5;
+    /*amount of array elements per node (power of 2)*/
     static const int M = 1 << B;
+
+    /*arena used for the arena allocation*/
+    static fe::Arena arena;
+    
+    
 
     /*node of the rbtree*/
     struct node {
-        node* inner[M];
-        T leaf[M];
+        static fe::Arena::Allocator<T> leafallocator;
+        static fe::Arena::Allocator<node*> innerallocator;
+        T* leaf;// = leafallocator.allocate(M);
+        
+        //node** inner = innerallocator.allocate(M);
+        node** inner;
+        
+        //muss sagt ki
+        node() : leaf(leafallocator.allocate(M)), inner(innerallocator.allocate(M)) {
+            for (int i = 0; i < M; ++i) {
+                inner[i] = nullptr;
+            }
+        }
+        //T leaf[M];
     };
 
     /*root node of the tree, unique to every persistent "copy"*/
@@ -142,6 +161,7 @@ public:
             newnode->leaf[0]=elem;
             return rbtree(newroot, size+1, shift+B, capacity*M);
         }
+
         node* newroot = insert_at_index(elem, root, shift, size);
         return rbtree(newroot, size+1, shift, capacity);
     }
@@ -190,4 +210,14 @@ public:
     }
 };
 
+
+//muss damit richtig funktioniert sagt ki
+template<typename T>
+fe::Arena rbtree<T>::arena;
+
+template<typename T>
+fe::Arena::Allocator<T> rbtree<T>::node::leafallocator = rbtree<T>::arena.allocator<T>();
+
+template<typename T>
+fe::Arena::Allocator<typename rbtree<T>::node*> rbtree<T>::node::innerallocator = rbtree<T>::arena.allocator<typename rbtree<T>::node*>();
 }

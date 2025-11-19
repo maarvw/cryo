@@ -1,67 +1,235 @@
-Start testing: Nov 18 16:37 CET
+Start testing: Nov 19 14:15 CET
 ----------------------------------------------------------
-1/3 Testing: Arena
-1/3 Test: Arena
+1/5 Testing: Arena
+1/5 Test: Arena
 Command: "/home/marvin/Uni/Forschungspraktikum/cryo/bin/cryo-test" "--test-case=Arena"
 Directory: /home/marvin/Uni/Forschungspraktikum/cryo/tests
-"Arena" start time: Nov 18 16:37 CET
+"Arena" start time: Nov 19 14:15 CET
 Output:
 ----------------------------------------------------------
 [doctest] doctest version is "2.4.12"
 [doctest] run with "--help" for options
 ===============================================================================
-[doctest] test cases: 1 | 1 passed | 0 failed | 2 skipped
+[doctest] test cases: 1 | 1 passed | 0 failed | 4 skipped
 [doctest] assertions: 1 | 1 passed | 0 failed |
 [doctest] Status: SUCCESS!
 <end of output>
 Test time =   0.00 sec
 ----------------------------------------------------------
 Test Passed.
-"Arena" end time: Nov 18 16:37 CET
+"Arena" end time: Nov 19 14:15 CET
 "Arena" time elapsed: 00:00:00
 ----------------------------------------------------------
 
-2/3 Testing: adding-stuff
-2/3 Test: adding-stuff
+2/5 Testing: adding-stuff
+2/5 Test: adding-stuff
 Command: "/home/marvin/Uni/Forschungspraktikum/cryo/bin/cryo-test" "--test-case=adding-stuff"
 Directory: /home/marvin/Uni/Forschungspraktikum/cryo/tests
-"adding-stuff" start time: Nov 18 16:37 CET
+"adding-stuff" start time: Nov 19 14:15 CET
 Output:
 ----------------------------------------------------------
 [doctest] doctest version is "2.4.12"
 [doctest] run with "--help" for options
+add recursive case
+insert base case
+add recursive case
+insert base case
+add recursive case
+insert base case
+add recursive case
+insert base case
+add recursive case
+insert base case
+add recursive case
+insert base case
+add recursive case
+insert base case
+add recursive case
+insert base case
+add recursive case
+insert base case
+add recursive case
+insert base case
+add recursive case
+insert base case
+add recursive case
+insert base case
+add recursive case
+insert base case
+add recursive case
+insert base case
+add recursive case
+insert base case
+add recursive case
+insert base case
+add recursive case
+insert base case
+add recursive case
+insert base case
+add recursive case
+insert base case
+add recursive case
+insert base case
+add recursive case
+insert base case
+add recursive case
+insert base case
+add recursive case
+insert base case
+add recursive case
+insert base case
+add recursive case
+insert base case
+add recursive case
+insert base case
+add recursive case
+insert base case
+add recursive case
+insert base case
+add recursive case
+insert base case
+add recursive case
+insert base case
+add recursive case
+insert base case
+add recursive case
+insert base case
+add base case
+add recursive case
+add with s=5
+insert base case
+add recursive case
+add with s=5
+insert base case
+add recursive case
+add with s=5
+insert base case
+add recursive case
+add with s=5
+insert base case
+add recursive case
+add with s=5
+insert base case
+add recursive case
+add with s=5
+insert base case
+add recursive case
+add with s=5
+insert base case
+add recursive case
+add with s=5
+insert base case
+add recursive case
+add with s=5
+insert base case
+add recursive case
+add with s=5
+insert base case
+add recursive case
+add with s=5
+insert base case
+add recursive case
+add with s=5
+insert base case
+add recursive case
+add with s=5
+insert base case
+add recursive case
+add with s=5
+insert base case
+add recursive case
+add with s=5
+insert base case
+add recursive case
+add with s=5
+insert base case
+add recursive case
+add with s=5
+insert base case
+add with s=5
+insert base case
 ===============================================================================
-[doctest] test cases: 1 | 1 passed | 0 failed | 2 skipped
+[doctest] test cases: 1 | 1 passed | 0 failed | 4 skipped
 [doctest] assertions: 6 | 6 passed | 0 failed |
 [doctest] Status: SUCCESS!
 <end of output>
 Test time =   0.00 sec
 ----------------------------------------------------------
 Test Passed.
-"adding-stuff" end time: Nov 18 16:37 CET
+"adding-stuff" end time: Nov 19 14:15 CET
 "adding-stuff" time elapsed: 00:00:00
 ----------------------------------------------------------
 
-3/3 Testing: constructor-list
-3/3 Test: constructor-list
+3/5 Testing: constructor-list
+3/5 Test: constructor-list
 Command: "/home/marvin/Uni/Forschungspraktikum/cryo/bin/cryo-test" "--test-case=constructor-list"
 Directory: /home/marvin/Uni/Forschungspraktikum/cryo/tests
-"constructor-list" start time: Nov 18 16:37 CET
+"constructor-list" start time: Nov 19 14:15 CET
 Output:
 ----------------------------------------------------------
 [doctest] doctest version is "2.4.12"
 [doctest] run with "--help" for options
 8
 ===============================================================================
-[doctest] test cases: 1 | 1 passed | 0 failed | 2 skipped
+[doctest] test cases: 1 | 1 passed | 0 failed | 4 skipped
 [doctest] assertions: 2 | 2 passed | 0 failed |
 [doctest] Status: SUCCESS!
 <end of output>
 Test time =   0.00 sec
 ----------------------------------------------------------
 Test Passed.
-"constructor-list" end time: Nov 18 16:37 CET
+"constructor-list" end time: Nov 19 14:15 CET
 "constructor-list" time elapsed: 00:00:00
 ----------------------------------------------------------
 
-End testing: Nov 18 16:37 CET
+4/5 Testing: string-add-primitive
+4/5 Test: string-add-primitive
+Command: "/home/marvin/Uni/Forschungspraktikum/cryo/bin/cryo-test" "--test-case=string-add-primitive"
+Directory: /home/marvin/Uni/Forschungspraktikum/cryo/tests
+"string-add-primitive" start time: Nov 19 14:15 CET
+Output:
+----------------------------------------------------------
+[doctest] doctest version is "2.4.12"
+[doctest] run with "--help" for options
+===============================================================================
+[doctest] test cases: 1 | 1 passed | 0 failed | 4 skipped
+[doctest] assertions: 0 | 0 passed | 0 failed |
+[doctest] Status: SUCCESS!
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"string-add-primitive" end time: Nov 19 14:15 CET
+"string-add-primitive" time elapsed: 00:00:00
+----------------------------------------------------------
+
+5/5 Testing: string-add-persistent
+5/5 Test: string-add-persistent
+Command: "/home/marvin/Uni/Forschungspraktikum/cryo/bin/cryo-test" "--test-case=string-add-persistent"
+Directory: /home/marvin/Uni/Forschungspraktikum/cryo/tests
+"string-add-persistent" start time: Nov 19 14:15 CET
+Output:
+----------------------------------------------------------
+[doctest] doctest version is "2.4.12"
+[doctest] run with "--help" for options
+add recursive case
+insert base case
+===============================================================================
+/home/marvin/Uni/Forschungspraktikum/cryo/tests/test.cpp:46:
+TEST CASE:  string-add-persistent
+
+/home/marvin/Uni/Forschungspraktikum/cryo/tests/test.cpp:46: FATAL ERROR: test case CRASHED: SIGSEGV - Segmentation violation signal
+
+===============================================================================
+[doctest] test cases: 1 | 0 passed | 1 failed | 4 skipped
+[doctest] assertions: 0 | 0 passed | 0 failed |
+[doctest] Status: FAILURE!
+<end of output>
+Test time =   0.15 sec
+----------------------------------------------------------
+Test Failed.
+"string-add-persistent" end time: Nov 19 14:15 CET
+"string-add-persistent" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Nov 19 14:15 CET
