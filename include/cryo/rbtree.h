@@ -1,3 +1,4 @@
+#pragma once
 #include <algorithm>
 #include <initializer_list>
 #include <stdexcept>
@@ -11,6 +12,7 @@ template<typename T>
 class rbtree {
 
 private:
+
     /*amount of branching bits used for the index bitshifts*/
     static const int B = 5;
     /*amount of array elements per node (power of 2)*/
@@ -34,7 +36,8 @@ private:
         node** inner;
         
         /*default constructor using arena allocators*/ 
-        node() : leaf(leafallocator.allocate(M)), inner(innerallocator.allocate(M)) {}
+        node() : 
+            leaf(leafallocator.allocate(M)), inner(innerallocator.allocate(M)) {}
     };
 
     /*root node of the tree, unique to every persistent "copy"*/
@@ -55,9 +58,8 @@ private:
     }
 
     /*contructor for new tree, only intended to be used by update functions*/
-    rbtree(node* r, size_t s, int sf, int cap) {
-        root=r, size=s, shift=sf, capacity=cap;
-    }
+    rbtree(node* r, size_t s, int sf, int cap) :
+        root(r), size(s), shift(sf), capacity(cap) {}
 
     /*adds element in non-persistent way, not intended to be used outside of constructors*/
     void add_primitive(T elem) {
@@ -107,13 +109,13 @@ private:
             // std::copy_n(cur->leaf, M, newleaf->leaf);
             // std::cout<<"changing"<<std::endl;
             // newleaf->leaf[i%M]=elem;
-            for (int j = 0; j < M; j++) {
+            for (int j = 0; j < M; j++) {  //trying this instead of copy_n
                 if (j == i % M) {
                     std::cout<<"j=="<<i<<std::endl;
-                    newleaf->leaf[j] = elem;  // Assignment instead of copy
+                    newleaf->leaf[j] = elem; 
                 } else {
                     std::cout<<"j="<<j<<std::endl;
-                    newleaf->leaf[j] = cur->leaf[j];  // Copy existing elements
+                    newleaf->leaf[j] = cur->leaf[j];  
                 }
             }
             std::cout<<"loop over"<<std::endl;
@@ -194,8 +196,8 @@ public:
     /*inserts an element at a specific (previously existing) index in the tree, 
       overwriting the data at that index. returns a persistent "copy" of the previous tree.*/
     rbtree insert(size_t i, T elem) {
-        if (i>=size)
-            throw std::runtime_error("dummer hurensohn");
+        if (i>=size || i<0)
+            throw std::runtime_error("invalid index");
         node* newroot = insert_at_index(elem, root, shift, i);
         return rbtree(newroot, size, shift, capacity);
     }
@@ -203,8 +205,8 @@ public:
     /*returns element at specific index, making no changes.
       equivalent to the [] operator*/
     const T& get(size_t i) {
-        if (i>=size) 
-            throw std::runtime_error("dummer hurensohn"); //vielleicht nochmal ändern lol
+        if (i>=size || i<0) 
+            throw std::runtime_error("invalid index");
         node* cur = root;
         int s = shift;
         while (s != 0) {
@@ -221,13 +223,22 @@ public:
     }
 
     /*returns number of elements in the tree*/
-    int getSize() {
+    size_t getSize() {
         return size;
     }
+
+
+    //iterator?
+
+    //destructor?
+
+    //fixed length array?
+
+    //set?
 };
 
 
-//muss damit richtig funktioniert sagt ki
+//muss hier sein damit arena richtig erkannt wird (?)
 template<typename T>
 fe::Arena rbtree<T>::arena;
 

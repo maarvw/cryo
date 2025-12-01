@@ -3,6 +3,7 @@
 #include<doctest/doctest.h>
 #include<cryo/set.h>
 #include"cryo/rbtree.h"
+#include"cryo/vector.h"
 #include<iostream>
 using namespace std;
 
@@ -83,8 +84,22 @@ TEST_CASE("32 strings") {
 }
 
 
-TEST_CASE("vectors") {
+TEST_CASE("std::vectors") {
     cryo::rbtree<vector<int>> k1 = cryo::rbtree<vector<int>>({1,2,3,4,5});
     cryo::rbtree<vector<int>> k2 = k1.add({5,4,2});
     CHECK(k2[1][0]==5);
+}
+
+TEST_CASE("vector") {
+    cryo::vector<int> k0 = cryo::vector<int>();
+    cryo::vector<int> k1 = k0.push_back(42);
+    cryo::vector<int> k2 = k1.push_back(43);
+    cryo::vector<int> k3 = k2.push_back(44);
+    cryo::vector<int> k4 = k3.insert(1, 52);
+    CHECK(k0.size()==0);
+    CHECK(k1.size()==1);
+    CHECK(k2.size()==2);
+    CHECK(k3.size()==3);
+    CHECK(k3[1]==43);
+    CHECK(k4[1]==52);
 }
