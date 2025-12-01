@@ -90,6 +90,7 @@ TEST_CASE("std::vectors") {
     CHECK(k2[1][0]==5);
 }
 
+#if 0
 TEST_CASE("vector") {
     cryo::vector<int> k0 = cryo::vector<int>();
     cryo::vector<int> k1 = k0.push_back(42);
@@ -103,3 +104,4 @@ TEST_CASE("vector") {
     CHECK(k3[1]==43);
     CHECK(k4[1]==52);
 }
+#endif

@@ -6,48 +6,59 @@
 #include "../../external/fe/include/fe/arena.h"
 namespace cryo {
 
-/*radix balanced tree with persistent functionality, 
+/*radix balanced tree with persistent functionality,
   serves as underlying datastructure for containers*/
-template<typename T>
+template<typename T, size_t B = 5>
 class rbtree {
-
 private:
-
-    /*amount of branching bits used for the index bitshifts*/
-    static const int B = 5;
     /*amount of array elements per node (power of 2)*/
-    static const int M = 1 << B;
+    static const size_t M = 1 << B;
 
     /*arena used for the arena allocation*/
-    static fe::Arena arena;
-    
-    
+    fe::Arena arena;
 
     /*node of the rbtree*/
-    struct node {
-        /*allocator for the leafs*/
-        static fe::Arena::Allocator<T> leafallocator;
-        /*allocator for the inner nodes*/
-        static fe::Arena::Allocator<node*> innerallocator;
+    class node {
+    public:
+        /*default constructor using arena allocators*/
+        node(bool is_leaf)
+            : is_leaf_(is_leaf) {}
 
-        /*array for the leaf data elements (only for leafs)*/
-        T* leaf;
-        /*array of pointers to child nodes (only for inner nodes)*/
-        node** inner;
-        
-        /*default constructor using arena allocators*/ 
-        node() : 
-            leaf(leafallocator.allocate(M)), inner(innerallocator.allocate(M)) {}
+        bool is_leaf() const { return is_leaf_; }
+        bool is_inner() const { return !is_leaf(); }
+
+        const T* leaves() const {
+            assert(is_leaf());
+            return leaves_;
+        }
+
+        const T& leaf(size_t i) const { return leaves()[i]; }
+
+        node** children() const {
+            assert(is_inner());
+            return children_;
+        }
+
+        node* child(size_t i) const { return children()[i]; }
+
+    private:
+        const bool is_leaf_;
+        size_t size_ = 0;
+
+        union {
+            const node* children_[];
+            const T leaves_[];
+        };
     };
 
     /*root node of the tree, unique to every persistent "copy"*/
     node* root;
     /*numer of elements in the tree*/
     size_t size;
-    /*bitshift amount at the root level. power of 2.*/
-    int shift;
     /*current capacity of the tree. multiple of M. if full, add() creates new layer*/
-    int capacity;
+    size_t capacity;
+    /*bitshift amount at the root level. power of 2.*/
+    size_t shift;
 
     /*initialises empty tree to be used by constructors*/
     void empty_init() {
@@ -58,8 +69,8 @@ private:
     }
 
     /*contructor for new tree, only intended to be used by update functions*/
-    rbtree(node* r, size_t s, int sf, int cap) :
-        root(r), size(s), shift(sf), capacity(cap) {}
+    rbtree(node* root, size_t size, size_t shift, size_t capacity) :
+        root(root), size(size), shift(shift), capacity(capacity) {}
 
     /*adds element in non-persistent way, not intended to be used outside of constructors*/
     void add_primitive(T elem) {
@@ -68,7 +79,7 @@ private:
         if (size>=capacity) { //new root
             std::cout<<"new cap"<<std::endl;
             int s = shift;
-            node* newroot = new node; 
+            node* newroot = new node;
             newroot->inner[0]=root;
             newroot->inner[1]= new node;
             node* newnode = newroot->inner[1]; //newroot remains "root" of new subtree
@@ -87,7 +98,7 @@ private:
         int i = size-1;
         int s = shift;
         while (s != 0) {
-            if (cur->inner[(i>>s)%M]==NULL) {
+            if (cur->inner[(i>>s)%M]==nullptr) {
                 cur->inner[(i>>s)%M] = new node;
             }
             cur = cur->inner[(i >> s) % M];
@@ -96,7 +107,7 @@ private:
         cur->leaf[i%M]=elem;
     }
 
-    
+
     /*recursive helper function adding an element at a specific index in the tree,
       expanding the tree if necessary. creates new nodes and returns a new root element
       for the new persistent "copy"*/
@@ -112,10 +123,10 @@ private:
             for (int j = 0; j < M; j++) {  //trying this instead of copy_n
                 if (j == i % M) {
                     std::cout<<"j=="<<i<<std::endl;
-                    newleaf->leaf[j] = elem; 
+                    newleaf->leaf[j] = elem;
                 } else {
                     std::cout<<"j="<<j<<std::endl;
-                    newleaf->leaf[j] = cur->leaf[j];  
+                    newleaf->leaf[j] = cur->leaf[j];
                 }
             }
             std::cout<<"loop over"<<std::endl;
@@ -139,7 +150,7 @@ private:
         return newinner;
     }
 
-    
+
 public:
 
     /*default constructor for empty tree*/
@@ -166,7 +177,7 @@ public:
         if (size+1 >= capacity) { //tree full, need to expand depth
             std::cout<<"add base case"<<std::endl;
             int s = shift;
-            node* newroot = new node; 
+            node* newroot = new node;
             newroot->inner[0]=root;
             newroot->inner[1]= new node;
             node* newnode = newroot->inner[1]; //newroot remains "root" of new subtree
@@ -193,7 +204,7 @@ public:
         return newtree;
     }
 
-    /*inserts an element at a specific (previously existing) index in the tree, 
+    /*inserts an element at a specific (previously existing) index in the tree,
       overwriting the data at that index. returns a persistent "copy" of the previous tree.*/
     rbtree insert(size_t i, T elem) {
         if (i>=size || i<0)
@@ -205,7 +216,7 @@ public:
     /*returns element at specific index, making no changes.
       equivalent to the [] operator*/
     const T& get(size_t i) {
-        if (i>=size || i<0) 
+        if (i>=size || i<0)
             throw std::runtime_error("invalid index");
         node* cur = root;
         int s = shift;
@@ -237,14 +248,4 @@ public:
     //set?
 };
 
-
-//muss hier sein damit arena richtig erkannt wird (?)
-template<typename T>
-fe::Arena rbtree<T>::arena;
-
-template<typename T>
-fe::Arena::Allocator<T> rbtree<T>::node::leafallocator = rbtree<T>::arena.allocator<T>();
-
-template<typename T>
-fe::Arena::Allocator<typename rbtree<T>::node*> rbtree<T>::node::innerallocator = rbtree<T>::arena.allocator<typename rbtree<T>::node*>();
 }
