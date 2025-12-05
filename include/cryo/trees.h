@@ -14,6 +14,12 @@ class trees {
 public:
     /*amount of array elements per node (power of 2)*/
     static const size_t M = 1 << B;
+    
+    /*id of the trees class, every tree generated from here will have the same*/
+    int id;
+    /*counter for tracking ids*/
+    inline static int counter = 0;
+   
 
     /*arena used for the arena allocation*/
     fe::Arena arena;
@@ -21,7 +27,7 @@ public:
     /*singular tree within the family with
     individual root element*/
     class tree {
-        public:
+    public:
         /*node of the rbtree*/
         class node {
         public:
@@ -63,25 +69,28 @@ public:
         size_t capacity;
         /*bitshift amount at the root level. power of 2.*/
         size_t shift;
+        /*id of the "parent" trees class*/
+        int trees_id;
 
         /*initialises empty tree to be used by constructors*/
-        void empty_init() {
+        void empty_init(int id) {
             size = 0;
             root = new node(true);
             shift = 0; //bei erhöhung der höhe +B
             capacity = M;
+            trees_id=id;
         }
 
         /*contructor for new tree, only intended to be used by update functions*/
-        tree(node* root, size_t size, size_t shift, size_t capacity) :
-            root(root), size(size), shift(shift), capacity(capacity) {}
+        tree(node* root, size_t size, size_t shift, size_t capacity, int id) :
+            root(root), size(size), shift(shift), capacity(capacity), trees_id(id) {}
 
         /*adds element in non-persistent way, not intended to be used outside of constructors*/
         void add_primitive(T elem) {
             size++;
-            std::cout<<"new elem, new size="<<size<<std::endl;
+            //std::cout<<"new elem, new size="<<size<<std::endl;
             if (size>=capacity) { //new root
-                std::cout<<"new cap"<<std::endl;
+                //std::cout<<"new cap"<<std::endl;
                 int s = shift;
                 node* newroot = new node(false);
                 newroot->children()[0]=root;
@@ -116,14 +125,14 @@ public:
         for the new persistent "copy"*/
         node* insert_at_index(T elem, node* cur, int s, size_t i) {
             if (s==0) {
-                std::cout<<"insert base case"<<std::endl;
+                //std::cout<<"insert base case"<<std::endl;
                 //copy & change leaf
                 node* newleaf = new node(true);
                 std::copy_n(cur->leaves(), M, newleaf->leaves());
                 newleaf->leaves()[i%M]=elem;
                 return newleaf;
             }
-            std::cout<<"add with s="<<s<<std::endl;
+            //std::cout<<"add with s="<<s<<std::endl;
             node* newinner = new node(false);
             std::copy_n(cur->children(), M, newinner->children());
             if (cur->children()[(i>>s)%M]==NULL) { //need to build new subtree of inners
@@ -140,21 +149,22 @@ public:
             return newinner;
         }
 
+        tree() = delete;
 
         /*default constructor for empty tree*/
-        tree() {
-            empty_init();
+        tree(int id) {
+            empty_init(id);
         }
 
         /*single element constructor*/
-        tree(T elem) {
-            empty_init();
+        tree(T elem, int id) {
+            empty_init(id);
             add_primitive(elem);
         }
 
         /*constructor for initializer list*/
-        tree(std::initializer_list<T> elems) {
-            empty_init();
+        tree(std::initializer_list<T> elems, int id) {
+            empty_init(id);
             for (T elem : elems)
                 add_primitive(elem);
         }
@@ -163,7 +173,7 @@ public:
         returns a persistent "copy" of the previous tree*/
         tree add(T elem) {
             if (size+1 >= capacity) { //tree full, need to expand depth
-                std::cout<<"add base case"<<std::endl;
+                //std::cout<<"add base case"<<std::endl;
                 int s = shift;
                 node* newroot = new node(false);
                 newroot->children()[0]=root;
@@ -175,10 +185,10 @@ public:
                     newnode=newnode->children()[0];
                 }
                 newnode->leaf(0)=elem;
-                return tree(newroot, size+1, shift+B, capacity*M);
+                return tree(newroot, size+1, shift+B, capacity*M, trees_id);
             }
             node* newroot = insert_at_index(elem, root, shift, size);
-            return tree(newroot, size+1, shift, capacity);
+            return tree(newroot, size+1, shift, capacity, trees_id);
         }
 
         /*adds whole list of elements at once but no fancy transience stuff (yet)*/
@@ -196,7 +206,7 @@ public:
             if (i>=size || i<0)
                 throw std::runtime_error("invalid index");
             node* newroot = insert_at_index(elem, root, shift, i);
-            return tree(newroot, size, shift, capacity);
+            return tree(newroot, size, shift, capacity, trees_id);
         }
 
         /*returns element at specific index, making no changes.
@@ -226,28 +236,37 @@ public:
 
     };
 
+    /*the last tree generated from this trees element*/
     tree latest_tree;
 
-    trees() {
-        latest_tree = tree();
-    }
+    /*default constuctor creating 1 empty tree*/
+    trees() :
+        latest_tree(tree(id=++counter)) {}
 
-    trees(T elem) {
-        latest_tree = tree(elem);
-    }
+    /*constructor creating tree with 1 element*/
+    trees(T elem) :
+        latest_tree(tree(elem, id=++counter)) {}
 
-    trees(std::initializer_list<T> elems) {
-        latest_tree = tree(elems);
-    }
+    /*constructor creating tree with initial elements*/
+    trees(std::initializer_list<T> elems) :
+        latest_tree(tree(elems, id=++counter)) {}
 
+    /*adds a new element to the tree by creating a persistent copy.
+      throws an exception if the tree did not come from this trees*/
     tree add(tree t1, T elem) {
+        if (t1.trees_id!=id)
+            throw std::runtime_error("tree id does not match trees id");
         return latest_tree = t1.add(elem);
     }
-
+    /*inserts a new element at an index of the tree by creating a persistent copy.
+      throws an exception if the tree did not come from this trees*/
     tree insert(tree t1, size_t i, T elem) {
+        if (t1.trees_id!=id)
+            throw std::runtime_error("tree id does not match trees id");
         return latest_tree = t1.insert(i, elem);
     }
 
+    /*returns the last tree created from this trees*/
     tree get() {
         return latest_tree;
     }

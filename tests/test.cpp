@@ -1,3 +1,4 @@
+#include <stdexcept>
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 
 #include<doctest/doctest.h>
@@ -115,6 +116,18 @@ TEST_CASE("neu") {
     CHECK(knecht2[0]==42);
     CHECK(knecht1.getSize()==0);
     CHECK(knecht2.getSize()==1);
-    
-    
+}
+
+TEST_CASE("id matching"){
+    cryo::trees meister1 = cryo::trees<int>();
+    cryo::trees<int>::tree knecht1 = meister1.get();
+    cryo::trees<int>::tree knecht2 = meister1.add(knecht1, 42);
+    cryo::trees meister2 = cryo::trees<int>();
+    cryo::trees<int>::tree knecht3 = meister2.get();
+    cryo::trees<int>::tree knecht4 = meister2.add(knecht3, 24);
+    try {
+        meister2.add(knecht1,67);
+    } catch (runtime_error e) {
+        cout<<e.what()<<endl;
+    }
 }
