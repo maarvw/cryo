@@ -69,16 +69,17 @@ public:
         size_t capacity;
         /*bitshift amount at the root level. power of 2.*/
         size_t shift;
-        /*id of the "parent" trees class*/
+        /*id of the "parent" trees class, technically redundant with arena*/
         int trees_id;
+        /*pointer to the arena of the "parent" trees element to be used for allocation*/
+        fe::Arena* arena;
 
         /*initialises empty tree to be used by constructors*/
-        void empty_init(int id) {
+        void empty_init() {
             size = 0;
-            root = new node(true);
+            root = new (arena) node(true);
             shift = 0; //bei erhöhung der höhe +B
             capacity = M;
-            trees_id=id;
         }
 
         /*contructor for new tree, only intended to be used by update functions*/
@@ -92,16 +93,16 @@ public:
             if (size>=capacity) { //new root
                 //std::cout<<"new cap"<<std::endl;
                 int s = shift;
-                node* newroot = new node(false);
+                node* newroot = new (arena) node(false);
                 newroot->children()[0]=root;
-                newroot->children()[1]= new node(root->is_leaf());
+                newroot->children()[1]= new (arena) node(root->is_leaf());
                 node* newnode = newroot->children()[1]; //newroot remains "root" of new subtree
                 while (s!=0) {
                     s -= B;
-                    newnode->children()[0] = new node(s==0);
+                    newnode->children()[0] = new (arena) node(s==0);
                     newnode=newnode->children()[0];
                 }
-                newnode->leaf[0]=elem;
+                newnode->leaf(0)=elem;
                 root = newroot;
                 shift+=B;
                 capacity*=M;
@@ -113,33 +114,32 @@ public:
             while (s != 0) {
                 s -= B;
                 if (cur->children()[(i>>s)%M]==nullptr) {
-                    cur->children()[(i>>s)%M] = new node(s==0);
+                    cur->children()[(i>>s)%M] = new (arena) node(s==0);
                 }
                 cur = cur->children()[(i >> s) % M];
             }
-            cur->leaf[i%M]=elem;
+            cur->leaf(i%M)=elem;
         }
 
         /*recursive helper function adding an element at a specific index in the tree,
-        expanding the tree if necessary. creates new nodes and returns a new root element
+        expanding the tree if necessary. creates new (arena) nodes and returns a new root element
         for the new persistent "copy"*/
         node* insert_at_index(T elem, node* cur, int s, size_t i) {
             if (s==0) {
-                //std::cout<<"insert base case"<<std::endl;
                 //copy & change leaf
-                node* newleaf = new node(true);
+                node* newleaf = new (arena) node(true);
                 std::copy_n(cur->leaves(), M, newleaf->leaves());
                 newleaf->leaves()[i%M]=elem;
                 return newleaf;
             }
             //std::cout<<"add with s="<<s<<std::endl;
-            node* newinner = new node(false);
+            node* newinner = new (arena) node(false);
             std::copy_n(cur->children(), M, newinner->children());
             if (cur->children()[(i>>s)%M]==NULL) { //need to build new subtree of inners
                 node* newnode = newinner; //newinner remains "root" of new subtree
                 while (s!=0) {
                     s -= B;
-                    newnode->children()[(i>>s)%M] = new node(s==0);
+                    newnode->children()[(i>>s)%M] = new (arena) node(s==0);
                     newnode=newnode->children()[(i>>s)%M]; //(i>>s)%M should always be 0 in this loop but just in case
                 }
                 newnode->leaf(0)=elem;
@@ -152,19 +152,22 @@ public:
         tree() = delete;
 
         /*default constructor for empty tree*/
-        tree(int id) {
-            empty_init(id);
+        tree(int id, fe::Arena* arena) :
+            arena(arena), trees_id(id) {
+            empty_init();
         }
 
         /*single element constructor*/
-        tree(T elem, int id) {
-            empty_init(id);
+        tree(T elem, int id, fe::Arena* arena) :
+            arena(arena), trees_id(id) {
+            empty_init();
             add_primitive(elem);
         }
 
         /*constructor for initializer list*/
-        tree(std::initializer_list<T> elems, int id) {
-            empty_init(id);
+        tree(std::initializer_list<T> elems, int id, fe::Arena* arena) :
+            arena(arena), trees_id(id) {
+            empty_init();
             for (T elem : elems)
                 add_primitive(elem);
         }
@@ -175,13 +178,13 @@ public:
             if (size+1 >= capacity) { //tree full, need to expand depth
                 //std::cout<<"add base case"<<std::endl;
                 int s = shift;
-                node* newroot = new node(false);
+                node* newroot = new (arena) node(false);
                 newroot->children()[0]=root;
-                newroot->children()[1]= new node(root->is_leaf());
+                newroot->children()[1]= new (arena) node(root->is_leaf());
                 node* newnode = newroot->children()[1]; //newroot remains "root" of new subtree
                 while (s!=0) {
                     s -= B;
-                    newnode->children()[0] = new node(s!=0);
+                    newnode->children()[0] = new (arena) node(s!=0);
                     newnode=newnode->children()[0];
                 }
                 newnode->leaf(0)=elem;
@@ -241,15 +244,15 @@ public:
 
     /*default constuctor creating 1 empty tree*/
     trees() :
-        latest_tree(tree(id=++counter)) {}
+        latest_tree(tree(id=++counter, &arena)) {}
 
     /*constructor creating tree with 1 element*/
     trees(T elem) :
-        latest_tree(tree(elem, id=++counter)) {}
+        latest_tree(tree(elem, id=++counter, &arena)) {}
 
     /*constructor creating tree with initial elements*/
     trees(std::initializer_list<T> elems) :
-        latest_tree(tree(elems, id=++counter)) {}
+        latest_tree(tree(elems, id=++counter, &arena)) {}
 
     /*adds a new element to the tree by creating a persistent copy.
       throws an exception if the tree did not come from this trees*/
@@ -271,10 +274,6 @@ public:
         return latest_tree;
     }
 
-
-    // trees family = trees();
-    // tree tree1 = family.get();
-    // tree tree2 = family.add(tree1, 42);
 };
 
 }

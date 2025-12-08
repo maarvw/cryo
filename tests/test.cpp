@@ -119,15 +119,32 @@ TEST_CASE("neu") {
 }
 
 TEST_CASE("id matching"){
-    cryo::trees meister1 = cryo::trees<int>();
-    cryo::trees<int>::tree knecht1 = meister1.get();
-    cryo::trees<int>::tree knecht2 = meister1.add(knecht1, 42);
-    cryo::trees meister2 = cryo::trees<int>();
-    cryo::trees<int>::tree knecht3 = meister2.get();
-    cryo::trees<int>::tree knecht4 = meister2.add(knecht3, 24);
+    using cryo::trees;
+    trees meister1 = trees<int>();
+    trees<int>::tree knecht1 = meister1.get();
+    trees<int>::tree knecht2 = meister1.add(knecht1, 42);
+    trees meister2 = trees<int>();
+    trees<int>::tree knecht3 = meister2.get();
+    trees<int>::tree knecht4 = meister2.add(knecht3, 24);
     try {
         meister2.add(knecht1,67);
     } catch (runtime_error e) {
         cout<<e.what()<<endl;
     }
+}
+
+TEST_CASE("constructor-list") {
+    cryo::trees<int> k({1, 2,3,4,5,6,7,8});
+    cryo::trees<int>::tree k1 = k.get();
+    CHECK(k1[7] == 8);
+    CHECK(k1.getSize() == 8);
+}
+
+TEST_CASE("using") {
+    using cryo::trees;
+    trees<int> k({1, 2,3,4,5,6,7,8});
+    trees<int>::tree k1 = k.get();
+    CHECK(k1[7] == 8);
+    CHECK(k1.getSize() == 8);
+    cout<<"hallo"<<endl;
 }
