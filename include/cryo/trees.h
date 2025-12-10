@@ -25,12 +25,18 @@ public:
         public:
             node(bool is_leaf)
              : is_leaf_(is_leaf) {
-                if (is_leaf) {
-                    for (size_t i = 0; i < M; ++i) {
-                        new (&leaves_[i]) T();  //necessary for strings to not cause segfault
-                    }
+                if (!std::is_trivially_default_constructible_v<T> && is_leaf) {
+                    for (size_t i = 0; i < M; ++i)
+                        new (&leaves_[i]) T();
                 }
+            }
+
+            ~node() {
+                if (!std::is_trivially_destructible_v<T> && is_leaf()) {
+                    for (size_t i = 0; i < M; ++i)
+                        leaves_[i]->~T();
                 }
+            }
 
             bool is_leaf() const { return is_leaf_; }
             bool is_inner() const { return !is_leaf(); }
