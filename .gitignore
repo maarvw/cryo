@@ -7,3 +7,6 @@ CMakeFiles
 DartConfiguration.tcl
 Makefile
 .cache
+lib
+Testing
+bin

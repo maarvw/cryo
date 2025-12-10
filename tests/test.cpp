@@ -1,105 +1,58 @@
+#include <stdexcept>
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 
 #include<doctest/doctest.h>
 #include<cryo/set.h>
-#include"cryo/rbtree.h"
-#include"cryo/vector.h"
+#include"cryo/trees.h"
 #include<iostream>
 using namespace std;
+using cryo::trees;
 
-TEST_CASE("Arena") {
-    cryo::Set set(23);
-    CHECK(set.key() == 23);
+TEST_CASE("adding stuff"){
+    trees meister = trees<int>(4);
+    trees<int>::tree t1 = meister.get();
+    CHECK(t1.getSize()==1);
+    CHECK(t1[0]==4);
+    trees<int>::tree t2 = t1.add(7);
+    CHECK(t1.getSize()==1);
+    CHECK(t1[0]==4);
+    CHECK(t2.getSize()==2);
+    CHECK(t2[0]==4);
+    CHECK(t2[1]==7);
+    trees<int>::tree t3 = t1.add(5);
+    trees<int>::tree t4 = t3.insert(0, 42);
+    CHECK(t3[1]==5);
+    CHECK(t4[0]==42);
 }
 
-TEST_CASE("adding-stuff") {
-    cryo::rbtree knecht1 = cryo::rbtree<int>();
-    cryo::rbtree knecht2 = knecht1.add(1);
-    CHECK(knecht1.getSize() == 0);
-    CHECK(knecht2.getSize() == 1);
-    CHECK(knecht2[0] == 1);
-
-    cryo::rbtree<int> knechte[50];
-    for (int i=1; i<50; i++){
-        knechte[i]=knechte[i-1].add(i);
-    }
-
-    cryo::rbtree knecht3 = knechte[45];
-
-    CHECK(knecht3[25] == 26);
-    cryo::rbtree knecht4 = knecht3.insert(25, 1);
-    CHECK(knecht3[25] == 26);
-    CHECK(knecht4[25] == 1);
+TEST_CASE("add-multiple"){
+    trees meister = trees<int>(42);
+    trees<int>::tree tree1 = meister.get();
+    trees<int>::tree tree2 = tree1.add({1,2,3,4,5,6,7,8,9});
+    CHECK(tree2.getSize()==10);
+    CHECK(tree2[0]==42);
+    CHECK(tree2[4]==4);
 }
 
-TEST_CASE("constructor-list") {
-    cryo::rbtree<int> k1({1, 2,3,4,5,6,7,8});
-    cout<<k1[7]<<endl;
-    CHECK(k1[7] == 8);
-    CHECK(k1.getSize() == 8);
+TEST_CASE("strings") { //strings machen stress
+    trees meister = trees<string>("hallo");
+    trees<string>::tree tree1 = meister.get();
+    trees<string>::tree tree2 = tree1.add("hi");
+    CHECK(tree2[1]=="hi");
 }
 
-TEST_CASE("string-add-primitive") {
-    cryo::rbtree knecht1 = cryo::rbtree<string>("hallo");
-    //knecht1.add_primitive("hi");
-}
-
-TEST_CASE("structs") {
+TEST_CASE("structs"){
     struct point {
-        int x, y;
+        int x, y, z;
+        double d;
     };
-    cryo::rbtree<point> punkte = cryo::rbtree<point>();
-    punkte.add({1,2});
-}
-
-TEST_CASE("char-pointers"){
-    cryo::rbtree knecht1 = cryo::rbtree<char*>();
-    char k = 'a';
-    cryo::rbtree knecht2 = knecht1.add(&k);
-}
-
-TEST_CASE("string-add-persistent") {
-    cryo::rbtree knecht1 = cryo::rbtree<string>("hallo");
-    cryo::rbtree knecht2 = knecht1.add("hi");
-    CHECK(knecht2[0]=="hallo");
-}
-
-TEST_CASE("structs-with-string") {
-    struct point2 {
-        int x, y;
-        string s;
-    };
-    cryo::rbtree<point2> punkte = cryo::rbtree<point2>({1,2, "hi"});
-    punkte.add({3,4, "hii"});
-}
-
-TEST_CASE("string-add-persistent-insert") {
-    cryo::rbtree knecht1 = cryo::rbtree<string>({"hallo","a", "b", "c"});
-    cryo::rbtree knecht2 = knecht1.insert(1, "kek");
-}
-
-TEST_CASE("32 strings") {
-    cryo::rbtree knecht = cryo::rbtree<string>({"s","s","s","s","s","s","s","s","s","s","s","s","s","s","s","s","s","s","s","s","s","s","s","s"});
-    knecht.insert(17, "a");
-}
-
-
-TEST_CASE("std::vectors") {
-    cryo::rbtree<vector<int>> k1 = cryo::rbtree<vector<int>>({1,2,3,4,5});
-    cryo::rbtree<vector<int>> k2 = k1.add({5,4,2});
-    CHECK(k2[1][0]==5);
-}
-
-TEST_CASE("vector") {
-    cryo::vector<int> k0 = cryo::vector<int>();
-    cryo::vector<int> k1 = k0.push_back(42);
-    cryo::vector<int> k2 = k1.push_back(43);
-    cryo::vector<int> k3 = k2.push_back(44);
-    cryo::vector<int> k4 = k3.insert(1, 52);
-    CHECK(k0.size()==0);
-    CHECK(k1.size()==1);
-    CHECK(k2.size()==2);
-    CHECK(k3.size()==3);
-    CHECK(k3[1]==43);
-    CHECK(k4[1]==52);
+    point p1 = {0,2,5,5.3};
+    point p2 = {6,1,5,-9.3};
+    point p3 = {0,2,5,54.3};
+    trees meister = trees<point>();
+    trees<point>::tree tree1 = meister.get();
+    trees<point>::tree tree2 = tree1.add(p1);
+    trees<point>::tree tree3 = tree2.add(p2);
+    trees<point>::tree tree4 = tree3.add(p3);
+    CHECK(tree4.getSize()==3);
 }
