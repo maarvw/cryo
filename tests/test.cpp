@@ -11,12 +11,12 @@ using cryo::trees;
 TEST_CASE("adding stuff"){
     trees meister = trees<int>(4);
     trees<int>::tree t1 = meister.get();
-    CHECK(t1.getSize()==1);
+    CHECK(t1.size()==1);
     CHECK(t1[0]==4);
     trees<int>::tree t2 = t1.add(7);
-    CHECK(t1.getSize()==1);
+    CHECK(t1.size()==1);
     CHECK(t1[0]==4);
-    CHECK(t2.getSize()==2);
+    CHECK(t2.size()==2);
     CHECK(t2[0]==4);
     CHECK(t2[1]==7);
     trees<int>::tree t3 = t1.add(5);
@@ -29,7 +29,7 @@ TEST_CASE("add-multiple"){
     trees meister = trees<int>(42);
     trees<int>::tree tree1 = meister.get();
     trees<int>::tree tree2 = tree1.add({1,2,3,4,5,6,7,8,9});
-    CHECK(tree2.getSize()==10);
+    CHECK(tree2.size()==10);
     CHECK(tree2[0]==42);
     CHECK(tree2[4]==4);
 }
@@ -54,5 +54,5 @@ TEST_CASE("structs"){
     trees<point>::tree tree2 = tree1.add(p1);
     trees<point>::tree tree3 = tree2.add(p2);
     trees<point>::tree tree4 = tree3.add(p3);
-    CHECK(tree4.getSize()==3);
+    CHECK(tree4.size()==3);
 }
