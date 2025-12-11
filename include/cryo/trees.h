@@ -1,6 +1,7 @@
 #pragma once
 #include <algorithm>
 #include <initializer_list>
+#include <iterator>
 #include <memory>
 #include <ostream>
 #include <stdexcept>
@@ -70,6 +71,7 @@ public:
         fe::Arena* arena_;
 
         tree() = delete;
+
     public:
         /*default constructor for empty tree*/
         tree(fe::Arena* arena) :
@@ -156,6 +158,21 @@ public:
             return size_;
         }
 
+        class iterator : public std::iterator<std::forward_iterator_tag, T> {
+        public:
+            tree tree_;
+            size_t idx_;
+            iterator(tree tree, size_t idx = 0) 
+             : tree_(tree), idx_(idx) {}
+
+            iterator& operator++() { idx_++; return *this; }
+            iterator operator++(int) { iterator ret = *this; ++(*this); return ret; }
+            T& operator*() {return tree_[idx_];}
+
+        };
+        iterator begin() { return iterator(this); }
+        iterator end() { return iterator(this, size_-1); }
+
     private:
         /*constructor for new tree, only intended to be used by update functions*/
         tree(node* root, size_t size, size_t shift, size_t capacity, fe::Arena* arena) :
@@ -237,7 +254,6 @@ private:
 
     /*the initial tree generated from this trees element*/
     tree initial_tree;
-
 public:
     /*default constuctor creating 1 empty tree*/
     trees() :

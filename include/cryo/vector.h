@@ -1,60 +1,60 @@
-#pragma once
-#include "rbtree.h"
-#include <initializer_list>
+// #pragma once
+// #include "rbtree.h"
+// #include <initializer_list>
 
-namespace cryo {
+// namespace cryo {
 
-template<typename T>
-class vector {
+// template<typename T>
+// class vector {
 
-private:
+// private:
 
-    /*the tree used internally*/
-    rbtree<T>* tree;
+//     /*the tree used internally*/
+//     rbtree<T>* tree;
 
-    vector(rbtree<T> tree) :
-        tree(&tree) {}
+//     vector(rbtree<T> tree) :
+//         tree(&tree) {}
 
-    vector(rbtree<T>* tree) :
-        tree(tree) {}
+//     vector(rbtree<T>* tree) :
+//         tree(tree) {}
     
 
-public:
+// public:
 
-    vector() :
-        tree(new rbtree<T>()) {}
+//     vector() :
+//         tree(new rbtree<T>()) {}
     
 
-    vector(T elem) :
-        tree(new rbtree<T>(elem)) {}
+//     vector(T elem) :
+//         tree(new rbtree<T>(elem)) {}
 
-    vector(std::initializer_list<T> elems) :
-        tree(new rbtree<T>(elems)) {}
+//     vector(std::initializer_list<T> elems) :
+//         tree(new rbtree<T>(elems)) {}
     
 
 
-    vector push_back(T elem) {
-        rbtree<T> t = tree->add(elem);
-        return new vector(t);
-        //return new vector(tree->add(elem));
-    }
+//     vector push_back(T elem) {
+//         rbtree<T> t = tree->add(elem);
+//         return new vector(t);
+//         //return new vector(tree->add(elem));
+//     }
 
-    vector insert(size_t i, T elem) {
-        return new vector(tree->insert(i, elem));
-    }
+//     vector insert(size_t i, T elem) {
+//         return new vector(tree->insert(i, elem));
+//     }
 
-    const T& get(size_t i) {
-        return tree->get(i);
-    }
+//     const T& get(size_t i) {
+//         return tree->get(i);
+//     }
 
-    const T& operator[](size_t i) {
-        return get(i);
-    }
+//     const T& operator[](size_t i) {
+//         return get(i);
+//     }
 
-    size_t size(){
-        return tree->getSize();
-    }
+//     size_t size(){
+//         return tree->getSize();
+//     }
 
-};
+// };
 
-}
+// }
