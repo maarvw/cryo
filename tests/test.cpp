@@ -56,3 +56,39 @@ TEST_CASE("structs"){
     trees<point>::tree tree4 = tree3.add(p3);
     CHECK(tree4.size()==3);
 }
+
+TEST_CASE("iterator") {
+    auto meister = trees<int>({6,3,8,35,1,9});
+    auto t1 = meister.get();
+    auto it = t1.begin();
+    while (it!=t1.end()) {
+        cout<<*it<<" ";
+        it++;
+    }
+    cout<<endl;
+    for (int i : t1)
+        cout<<i<<" ";
+    cout<<endl;
+}
+
+TEST_CASE("2 iterators") {
+    auto m1 = trees<int>({1,2,3,4,5});
+    auto m2 = trees<int>({6,7,8,9});
+    auto t1 = m1.get(), t2 = m2.get();
+    auto i1 = t1.begin(), i2 = t2.begin();
+    while (i1!=t1.end()){
+        CHECK(i1!=i2);
+        i1++, i2++;
+    }
+}
+
+TEST_CASE("iterator operators") {
+    auto m1 = trees<int>({1, 6, 25, 15, -6, 23, 0, 111});
+    auto t1 = m1.get();
+    auto i1 = t1.begin();
+    CHECK(*i1 == 1);
+    CHECK(*(i1+3)==15);
+    i1+=4;
+    CHECK(*i1==-6);
+    CHECK(*(i1-2)==25);
+}

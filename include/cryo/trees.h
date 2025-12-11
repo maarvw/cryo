@@ -164,20 +164,31 @@ public:
             return size_;
         }
 
-        class iterator : public std::iterator<std::forward_iterator_tag, T> {
+        class iterator {
         public:
-            tree tree_;
+            tree* tree_;
             size_t idx_;
-            iterator(tree tree, size_t idx = 0) 
+            iterator(tree* tree, size_t idx = 0) 
              : tree_(tree), idx_(idx) {}
+
+            const T& operator*() {return (*tree_)[idx_];}
 
             iterator& operator++() { idx_++; return *this; }
             iterator operator++(int) { iterator ret = *this; ++(*this); return ret; }
-            T& operator*() {return tree_[idx_];}
+            iterator& operator--() { idx_--; return *this; }
+            iterator operator--(int) { iterator ret = *this; --(*this); return ret; }
+            
+            iterator& operator+=(int n) { idx_+=n; return *this; }
+            iterator& operator-=(int n) { idx_-=n; return *this; }
+            
+            iterator operator+(int n) { return iterator(tree_, idx_+n); }
+            iterator operator-(int n) { return iterator(tree_, idx_-n); }
 
+            bool operator==(iterator other) { return this->idx_==other.idx_ && this->tree_==other.tree_; }
+            bool operator!=(iterator other) { return !(*this==other); }
         };
         iterator begin() { return iterator(this); }
-        iterator end() { return iterator(this, size_-1); }
+        iterator end() { return iterator(this, size_); }
 
     private:
         /*constructor for new tree, only intended to be used by update functions*/
@@ -233,7 +244,6 @@ public:
                 //copy & change leaf
                 node* newleaf = new (arena_->allocate<node>(1)) node(true);
                 std::copy_n(cur->leaves(), M, newleaf->leaves());
-                std::cout<<"copied"<<std::endl;
                 newleaf->leaves()[i%M]=elem;
                 return newleaf;
             }
