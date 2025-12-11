@@ -91,4 +91,8 @@ TEST_CASE("iterator operators") {
     i1+=4;
     CHECK(*i1==-6);
     CHECK(*(i1-2)==25);
+    i1--;
+    CHECK(*i1==15);
+    auto i2 = t1.begin()+3;
+    CHECK(i1==i2);
 }
