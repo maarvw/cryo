@@ -108,16 +108,16 @@ public:
         /*adds new element to the tree, expanding the tree if necessary.
         returns a persistent "copy" of the previous tree*/
         tree add(T elem) {
-            if (size_+1 >= capacity_) { //tree full, need to expand depth
+            if (size_+1 > capacity_) { //tree full, need to expand depth
                 int s = shift_;
                 node* newroot = new (arena_->allocate<node>(1)) node(false, nullptr);
                 newroot->children()[0]=root_;
                 newroot->children()[1]= new (arena_->allocate<node>(1)) node(root_->is_leaf(),newroot);
                 node* newnode = newroot->children()[1]; //newroot remains "root" of new subtree
                 while (s!=0) {
-                    s -= B;
-                    newnode->children()[0] = new (arena_->allocate<node>(1)) node(s!=0, newnode);
+                    newnode->children()[0] = new (arena_->allocate<node>(1)) node(s==B, newnode);
                     newnode=newnode->children()[0];
+                    s -= B;
                 }
                 newnode->leaf(0)=elem;
                 return tree(newroot, size_+1, shift_+B, capacity_*M, arena_);
@@ -152,7 +152,7 @@ public:
             node* cur = root_;
             int s = shift_;
             while (s != 0) {
-                cur = cur->children()[(i >> s) % M];
+                cur = cur->child((i >> s) % M);
                 s -= B;
             }
             return cur->leaf(i%M);
@@ -180,7 +180,7 @@ public:
 
             void update_leaf(size_t newidx) {
                 size_t diff = newidx-idx_;
-                if (!((idx_%M)+diff>=0&&(idx_%M)+diff<M)) leaf_=tree_->get_leaf(idx_);
+                if (!((idx_%M)+diff>=0&&(idx_%M)+diff<M)) leaf_=tree_->get_leaf(newidx);
                 idx_=newidx;
             }
 
@@ -219,7 +219,7 @@ public:
         /*adds element in non-persistent way, not intended to be used outside of constructors*/
         void add_primitive(T elem) {
             size_++;
-            if (size_>=capacity_) { //new root
+            if (size_>capacity_) { //new root
                 int s = shift_;
                 node* newroot = new (arena_->allocate<node>(1)) node(false, nullptr);
                 newroot->children()[0]=root_;
@@ -257,7 +257,7 @@ public:
                 //copy & change leaf
                 node* newleaf = new (arena_->allocate<node>(1)) node(true, nullptr);
                 std::copy_n(cur->leaves(), M, newleaf->leaves());
-                newleaf->leaves()[i%M]=elem;
+                newleaf->leaf(i%M)=elem;
                 return newleaf;
             }
             node* newinner = new (arena_->allocate<node>(1)) node(false, nullptr);
@@ -265,9 +265,9 @@ public:
             if (cur->children()[(i>>s)%M]==nullptr) { //need to build new subtree of inners
                 node* newnode = newinner; //newinner remains "root" of new subtree
                 while (s!=0) {
-                    s -= B;
-                    newnode->children()[(i>>s)%M] = new (arena_->allocate<node>(1)) node(s==0, newnode);
+                    newnode->children()[(i>>s)%M] = new (arena_->allocate<node>(1)) node(s==B, newnode);
                     newnode=newnode->children()[(i>>s)%M]; //(i>>s)%M should always be 0 in this loop but just in case
+                    s -= B;
                 }
                 newnode->leaf(0)=elem;
                 return newinner;

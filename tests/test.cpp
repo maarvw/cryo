@@ -57,6 +57,37 @@ TEST_CASE("structs"){
     CHECK(tree4.size()==3);
 }
 
+TEST_CASE("many elements") {
+    auto meister = trees<int>();
+    auto t1 = meister.get();
+    vector<trees<int>::tree> ts;
+    ts.push_back(t1.add(0));
+    int N = 145;
+    for (int i=1;i<N;i++){
+        ts.push_back(ts[i-1].add(i));
+    }
+
+    for (int i=0;i<N;i++){
+        CHECK(ts[i].size()==i+1);
+        CHECK(ts[i][i]==i);
+    }
+}
+
+TEST_CASE("many many elements") {
+    auto meister = trees<int>();
+    auto t1 = meister.get();
+    vector<trees<int>::tree> ts;
+    ts.push_back(t1.add(0));
+    int N = 252622;
+    for (int i=1;i<N;i++){
+        ts.push_back(ts[i-1].add(i));
+    }
+    for (int i=0;i<N;i++){
+        CHECK(ts[i].size()==i+1);
+        CHECK(ts[i][i]==i);
+    }
+}
+
 TEST_CASE("iterator") {
     auto meister = trees<int>({6,3,8,35,1,9});
     auto t1 = meister.get();
