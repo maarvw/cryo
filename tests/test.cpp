@@ -57,6 +57,54 @@ TEST_CASE("structs"){
     CHECK(tree4.size()==3);
 }
 
+TEST_CASE("many elements") {
+    auto meister = trees<int>();
+    auto t1 = meister.get();
+    vector<trees<int>::tree> ts;
+    ts.push_back(t1.add(0));
+    int N = 145;
+    for (int i=1;i<N;i++){
+        ts.push_back(ts[i-1].add(i));
+    }
+
+    for (int i=0;i<N;i++){
+        CHECK(ts[i].size()==i+1);
+        CHECK(ts[i][i]==i);
+    }
+}
+
+TEST_CASE("many many elements") {
+    auto meister = trees<int>();
+    auto t1 = meister.get();
+    vector<trees<int>::tree> ts;
+    ts.push_back(t1.add(0));
+    int N = 252622;
+    for (int i=1;i<N;i++){
+        ts.push_back(ts[i-1].add(i));
+    }
+    for (int i=0;i<N;i++){
+        CHECK(ts[i].size()==i+1);
+        CHECK(ts[i][i]==i);
+    }
+}
+
+TEST_CASE("small B") {
+    auto meister = trees<int, 2>(4);
+    auto t1 = meister.get();
+    CHECK(t1.size()==1);
+    CHECK(t1[0]==4);
+    auto t2 = t1.add(7);
+    CHECK(t1.size()==1);
+    CHECK(t1[0]==4);
+    CHECK(t2.size()==2);
+    CHECK(t2[0]==4);
+    CHECK(t2[1]==7);
+    auto t3 = t1.add(5);
+    auto t4 = t3.insert(0, 42);
+    CHECK(t3[1]==5);
+    CHECK(t4[0]==42);
+}
+
 TEST_CASE("iterator") {
     auto meister = trees<int>({6,3,8,35,1,9});
     auto t1 = meister.get();
@@ -91,4 +139,22 @@ TEST_CASE("iterator operators") {
     i1+=4;
     CHECK(*i1==-6);
     CHECK(*(i1-2)==25);
+    i1--;
+    CHECK(*i1==15);
+    auto i2 = t1.begin()+3;
+    CHECK(i1==i2);
+}
+
+TEST_CASE("reverse iterator") {
+    auto meister = trees<int>({6,3,8,35,1,9});
+    auto t1 = meister.get();
+    auto it = t1.rbegin();
+    while (it!=t1.rend()) {
+        cout<<*it<<" ";
+        it++;
+    }
+    cout<<endl;
+    for (int i : t1.reverse())
+        cout<<i<<" ";
+    cout<<endl;
 }

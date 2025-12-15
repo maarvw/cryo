@@ -1,5 +1,6 @@
 #pragma once
 #include <algorithm>
+#include <cstddef>
 #include <initializer_list>
 #include <iterator>
 #include <memory>
@@ -24,8 +25,8 @@ public:
         /*node of the rbtree*/
         class node {
         public:
-            node(bool is_leaf)
-             : is_leaf_(is_leaf) {
+            node(bool is_leaf, node* parent)
+             : is_leaf_(is_leaf), parent_(parent) {
                 if (!std::is_trivially_default_constructible_v<T> && is_leaf) {
                     for (size_t i = 0; i < M; ++i)
                         new (&leaves_[i]) T();
@@ -54,10 +55,14 @@ public:
                 return children_;
             }
 
-            node* child(size_t i) const { return children()[i]; }
+            node*& child(size_t i) { return children()[i]; }
+
+            void set_parent(node* p) { parent_ = p; }
 
         private:
             const bool is_leaf_;
+
+            node* parent_;
 
             union {
                 node* children_[M];
@@ -103,16 +108,16 @@ public:
         /*adds new element to the tree, expanding the tree if necessary.
         returns a persistent "copy" of the previous tree*/
         tree add(T elem) {
-            if (size_+1 >= capacity_) { //tree full, need to expand depth
+            if (size_+1 > capacity_) { //tree full, need to expand depth
                 int s = shift_;
-                node* newroot = new (arena_->allocate<node>(1)) node(false);
-                newroot->children()[0]=root_;
-                newroot->children()[1]= new (arena_->allocate<node>(1)) node(root_->is_leaf());
-                node* newnode = newroot->children()[1]; //newroot remains "root" of new subtree
+                node* newroot = new (arena_->allocate<node>(1)) node(false, nullptr);
+                newroot->child(0)=root_;
+                newroot->child(1)= new (arena_->allocate<node>(1)) node(root_->is_leaf(),newroot);
+                node* newnode = newroot->child(1); //newroot remains "root" of new subtree
                 while (s!=0) {
+                    newnode->child(0) = new (arena_->allocate<node>(1)) node(s==B, newnode);
+                    newnode=newnode->child(0);
                     s -= B;
-                    newnode->children()[0] = new (arena_->allocate<node>(1)) node(s!=0);
-                    newnode=newnode->children()[0];
                 }
                 newnode->leaf(0)=elem;
                 return tree(newroot, size_+1, shift_+B, capacity_*M, arena_);
@@ -147,7 +152,7 @@ public:
             node* cur = root_;
             int s = shift_;
             while (s != 0) {
-                cur = cur->children()[(i >> s) % M];
+                cur = cur->child((i >> s) % M);
                 s -= B;
             }
             return cur->leaf(i%M);
@@ -168,18 +173,26 @@ public:
         public:
             tree* tree_;
             size_t idx_;
+            node* leaf_;
             iterator(tree* tree, size_t idx = 0) 
-             : tree_(tree), idx_(idx) {}
+             : tree_(tree), idx_(idx), leaf_(tree_->get_leaf(idx_)) {}
 
-            const T& operator*() {return (*tree_)[idx_];}
 
-            iterator& operator++() { idx_++; return *this; }
+            void update_leaf(size_t newidx) {
+                size_t diff = newidx-idx_;
+                if (!((idx_%M)+diff>=0&&(idx_%M)+diff<M)) leaf_=tree_->get_leaf(newidx);
+                idx_=newidx;
+            }
+
+            const T& operator*() { return leaf_->leaf(idx_%M); }
+
+            iterator& operator++() { update_leaf(idx_+1); return *this; }
             iterator operator++(int) { iterator ret = *this; ++(*this); return ret; }
-            iterator& operator--() { idx_--; return *this; }
+            iterator& operator--() { update_leaf(idx_-1); return *this; }
             iterator operator--(int) { iterator ret = *this; --(*this); return ret; }
             
-            iterator& operator+=(int n) { idx_+=n; return *this; }
-            iterator& operator-=(int n) { idx_-=n; return *this; }
+            iterator& operator+=(int n) { update_leaf(idx_+n); return *this; }
+            iterator& operator-=(int n) { update_leaf(idx_-n); return *this; }
             
             iterator operator+(int n) { return iterator(tree_, idx_+n); }
             iterator operator-(int n) { return iterator(tree_, idx_-n); }
@@ -190,6 +203,51 @@ public:
         iterator begin() { return iterator(this); }
         iterator end() { return iterator(this, size_); }
 
+        class reverse_iterator {
+        public:
+            tree* tree_;
+            size_t idx_;
+            node* leaf_;
+            reverse_iterator(tree* tree, size_t idx) 
+             : tree_(tree), idx_(idx), leaf_(tree_->get_leaf(idx_)) {}
+
+
+            void update_leaf(size_t newidx) {
+                size_t diff = newidx-idx_;
+                if (!((idx_%M)-diff>=0&&(idx_%M)-diff<M)) leaf_=tree_->get_leaf(newidx);
+                idx_=newidx;
+            }
+
+            const T& operator*() { return leaf_->leaf(idx_%M); }
+
+            reverse_iterator& operator++() { update_leaf(idx_-1); return *this; }
+            reverse_iterator operator++(int) { reverse_iterator ret = *this; ++(*this); return ret; }
+            reverse_iterator& operator--() { update_leaf(idx_+1); return *this; }
+            reverse_iterator operator--(int) { reverse_iterator ret = *this; --(*this); return ret; }
+            
+            reverse_iterator& operator+=(int n) { update_leaf(idx_-n); return *this; }
+            reverse_iterator& operator-=(int n) { update_leaf(idx_+n); return *this; }
+            
+            reverse_iterator operator+(int n) { return reverse_iterator(tree_, idx_-n); }
+            reverse_iterator operator-(int n) { return reverse_iterator(tree_, idx_+n); }
+
+            bool operator==(reverse_iterator other) { return this->idx_==other.idx_ && this->tree_==other.tree_; }
+            bool operator!=(reverse_iterator other) { return !(*this==other); }
+        };
+        reverse_iterator rbegin() { return reverse_iterator(this, size_-1); }
+        reverse_iterator rend() { return reverse_iterator(this, -1); }
+
+        /*creates a new tree with the current elements in reverse order*/
+        tree reverse() {
+            tree newtree = tree(arena_);
+            reverse_iterator ri = rbegin();
+            while (ri != rend()) {
+                newtree.add_primitive(*ri);
+                ri++;
+            }
+            return newtree;
+        }
+
     private:
         /*constructor for new tree, only intended to be used by update functions*/
         tree(node* root, size_t size, size_t shift, size_t capacity, fe::Arena* arena) :
@@ -198,7 +256,7 @@ public:
         /*initialises empty tree to be used by constructors*/
         void empty_init() {
             size_ = 0;
-            root_ = new (arena_->allocate<node>(1)) node(true);
+            root_ = new (arena_->allocate<node>(1)) node(true, nullptr);
             shift_ = 0; //bei erhöhung der höhe +B
             capacity_ = M;
         }
@@ -206,16 +264,16 @@ public:
         /*adds element in non-persistent way, not intended to be used outside of constructors*/
         void add_primitive(T elem) {
             size_++;
-            if (size_>=capacity_) { //new root
+            if (size_>capacity_) { //new root
                 int s = shift_;
-                node* newroot = new (arena_->allocate<node>(1)) node(false);
-                newroot->children()[0]=root_;
-                newroot->children()[1]= new (arena_->allocate<node>(1)) node(root_->is_leaf());
-                node* newnode = newroot->children()[1]; //newroot remains "root" of new subtree
+                node* newroot = new (arena_->allocate<node>(1)) node(false, nullptr);
+                newroot->child(0)=root_;
+                newroot->child(1)= new (arena_->allocate<node>(1)) node(root_->is_leaf(), newroot);
+                node* newnode = newroot->child(1); //newroot remains "root" of new subtree
                 while (s!=0) {
+                    newnode->child(0) = new (arena_->allocate<node>(1)) node(s==B, newnode);
+                    newnode=newnode->child(0);
                     s -= B;
-                    newnode->children()[0] = new (arena_->allocate<node>(1)) node(s==0);
-                    newnode=newnode->children()[0];
                 }
                 newnode->leaf(0)=elem;
                 root_ = newroot;
@@ -228,10 +286,10 @@ public:
             int s = shift_;
             while (s != 0) {
                 s -= B;
-                if (cur->children()[(i>>s)%M]==nullptr) {
-                    cur->children()[(i>>s)%M] = new (arena_->allocate<node>(1)) node(s==0);
+                if (cur->child((i>>s)%M)==nullptr) {
+                    cur->child((i>>s)%M) = new (arena_->allocate<node>(1)) node(s==0, cur);
                 }
-                cur = cur->children()[(i >> s) % M];
+                cur = cur->child((i>>s)%M);
             }
             cur->leaf(i%M)=elem;
         }
@@ -242,29 +300,40 @@ public:
         node* insert_at_index(T elem, node* cur, int s, size_t i) {
             if (s==0) {
                 //copy & change leaf
-                node* newleaf = new (arena_->allocate<node>(1)) node(true);
+                node* newleaf = new (arena_->allocate<node>(1)) node(true, nullptr);
                 std::copy_n(cur->leaves(), M, newleaf->leaves());
-                newleaf->leaves()[i%M]=elem;
+                newleaf->leaf(i%M)=elem;
                 return newleaf;
             }
-            node* newinner = new (arena_->allocate<node>(1)) node(false);
-            std::uninitialized_copy_n(cur->children(), M, newinner->children());
-            if (cur->children()[(i>>s)%M]==NULL) { //need to build new subtree of inners
+            node* newinner = new (arena_->allocate<node>(1)) node(false, nullptr);
+            std::copy_n(cur->children(), M, newinner->children());
+            if (cur->child((i>>s)%M)==nullptr) { //need to build new subtree of inners
                 node* newnode = newinner; //newinner remains "root" of new subtree
                 while (s!=0) {
+                    newnode->child((i>>s)%M) = new (arena_->allocate<node>(1)) node(s==B, newnode);
+                    newnode=newnode->child((i>>s)%M); //(i>>s)%M should always be 0 in this loop but just in case
                     s -= B;
-                    newnode->children()[(i>>s)%M] = new (arena_->allocate<node>(1)) node(s==0);
-                    newnode=newnode->children()[(i>>s)%M]; //(i>>s)%M should always be 0 in this loop but just in case
                 }
                 newnode->leaf(0)=elem;
                 return newinner;
             }
-            newinner->children()[(i>>s)%M]=insert_at_index(elem, cur->children()[(i>>s)%M], s-B, i);
+            newinner->child((i>>s)%M)=insert_at_index(elem, cur->child((i>>s)%M), s-B, i);
+            newinner->child((i>>s)%M)->set_parent(newinner);
             return newinner;
         }
 
+        node* get_leaf(size_t i){
+            node* cur = root_;
+            int s=shift_;
+            while (!cur->is_leaf()){
+                cur=cur->child((i>>s)%M);
+                s-=B;
+            }
+            return cur;
+        }
+
     };
-private:
+
     /*arena used for the arena allocation*/
     fe::Arena arena;
 
