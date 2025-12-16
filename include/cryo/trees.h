@@ -21,6 +21,10 @@ public:
     /*singular tree within the family with
     individual root element*/
     class tree {
+    public:
+        ~tree(){
+            root_->~node();
+        }
     private:
         /*node of the rbtree*/
         class node {
@@ -34,9 +38,14 @@ public:
             }
 
             ~node() {
-                if (!std::is_trivially_destructible_v<T> && is_leaf()) {
-                    for (size_t i = 0; i < M; ++i)
-                        leaves_[i]->~T();
+                if (std::is_trivially_destructible_v<T>) return; //we only want this destructor for strings and such
+                if (!is_leaf_){
+                    for (auto child : children_) { if (child==nullptr) break; child->~node(); }
+                }
+                else {
+                    for (size_t i = 0; i < M; ++i){
+                        leaves_[i].~T();
+                    }
                 }
             }
 

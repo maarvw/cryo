@@ -158,3 +158,11 @@ TEST_CASE("reverse iterator") {
         cout<<i<<" ";
     cout<<endl;
 }
+
+TEST_CASE("long string") {
+    auto meister = trees<string>();
+    auto t1 = meister.get();
+    auto t2 = t1.add("looooooooooooooooooooooooooooong string");
+    CHECK(t2.size()==1);
+    CHECK(t2[0]=="looooooooooooooooooooooooooooong string");
+}
