@@ -40,7 +40,7 @@ public:
             ~node() {
                 if (std::is_trivially_destructible_v<T>) return; //we only want this destructor for strings and such
                 if (!is_leaf_){
-                    for (auto child : children_) { if (child==nullptr) break; child->~node(); }
+                    for (auto child : children_) { if (child==nullptr) break; delete child; }
                 }
                 else {
                     for (size_t i = 0; i < M; ++i){

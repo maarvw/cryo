@@ -1,3 +1,4 @@
+#include <iterator>
 #include <stdexcept>
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 
@@ -5,7 +6,9 @@
 #include<cryo/set.h>
 #include"cryo/trees.h"
 #include<iostream>
-using namespace std;
+using std::cout;
+using std::endl;
+using std::string;
 using cryo::trees;
 
 TEST_CASE("adding stuff"){
@@ -60,7 +63,7 @@ TEST_CASE("structs"){
 TEST_CASE("many elements") {
     auto meister = trees<int>();
     auto t1 = meister.get();
-    vector<trees<int>::tree> ts;
+    std::vector<trees<int>::tree> ts;
     ts.push_back(t1.add(0));
     int N = 145;
     for (int i=1;i<N;i++){
@@ -76,7 +79,7 @@ TEST_CASE("many elements") {
 TEST_CASE("many many elements") {
     auto meister = trees<int>();
     auto t1 = meister.get();
-    vector<trees<int>::tree> ts;
+    std::vector<trees<int>::tree> ts;
     ts.push_back(t1.add(0));
     int N = 252622;
     for (int i=1;i<N;i++){
@@ -165,4 +168,57 @@ TEST_CASE("long string") {
     auto t2 = t1.add("looooooooooooooooooooooooooooong string");
     CHECK(t2.size()==1);
     CHECK(t2[0]=="looooooooooooooooooooooooooooong string");
+}
+
+TEST_CASE("std::copy") {
+    auto meister = trees<int>({6,3,8,35,1,9});
+    auto t1 = meister.get();
+    std::vector<int> t2; //cant copy to different cryo tree due to immutability
+    std::copy(t1.begin(),t1.end(),std::back_inserter(t2));
+    for (int i=0;i<t1.size();i++)
+        CHECK(t1[i]==t2[i]);
+}
+
+TEST_CASE("std::copy_if") {
+    auto meister = trees<int>({6,3,8,35,1,9});
+    auto t1 = meister.get();
+    std::vector<int> t2;
+    std::copy_if(t1.begin(),t1.end(), std::back_inserter(t2), [](int x) {return x%2==0;});
+    for (int i : t2) CHECK(i%2==0);
+}
+
+
+TEST_CASE("std::transform (unary)") {
+    auto meister = trees<int>({6,3,8,35,1,9});
+    auto t1 = meister.get();
+    std::vector<int> t2(t1.size());
+    std::transform(t1.begin(),t1.end(),t2.begin(), [](int x) {return x+1;});
+    for (int i=0;i<t1.size();i++)
+        CHECK(t2[i]==t1[i]+1);
+}
+
+TEST_CASE("std::transform (binary)") {
+    auto meister1 = trees<int>({6,3,8,35,1,9});
+    auto t1 = meister1.get();
+    auto meister2 = trees<int>({9, -3, 52, 11, 45, 0});
+    auto t2 = meister2.get();
+    std::vector<int> t3(t1.size());
+    std::transform(t1.begin(),t1.end(),t2.begin(), t3.begin(), [](int a, int b) {return a+b;});
+    for (int i=0;i<t1.size();i++)
+        CHECK(t3[i]==t1[i]+t2[i]);
+}
+
+TEST_CASE("set_union") {
+    auto m1 = trees<int>({1,2,3,5});
+    auto t1 = m1.get();
+    auto m2 = trees<int>({-1,0,3,4,9});
+    auto t2 = m2.get();
+    std::set<int> check({-1,0,1,2,3,4,5,9});
+    std::vector<int> t3;
+    std::set_union(t1.begin(),t1.end(),t2.begin(),t2.end(),std::back_inserter(t3));
+    for (int i : t3) {
+        CHECK(check.count(i));
+        check.erase(i);
+    }
+
 }
