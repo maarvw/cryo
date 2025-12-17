@@ -220,5 +220,4 @@ TEST_CASE("set_union") {
         CHECK(check.count(i));
         check.erase(i);
     }
-
 }

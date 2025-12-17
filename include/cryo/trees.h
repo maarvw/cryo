@@ -180,9 +180,18 @@ public:
 
         class iterator {
         public:
+            using difference_type = std::ptrdiff_t;   
+            using value_type = T;                    
+            using reference = const T&;                     
+            using pointer = T*;             
+            using iterator_category = std::random_access_iterator_tag;
+
             tree* tree_;
             size_t idx_;
             node* leaf_;
+
+            iterator() = default;
+
             iterator(tree* tree, size_t idx = 0) 
              : tree_(tree), idx_(idx), leaf_(tree_->get_leaf(idx_)) {}
 
@@ -193,30 +202,50 @@ public:
                 idx_=newidx;
             }
 
-            const T& operator*() { return leaf_->leaf(idx_%M); }
+            const T& operator*() const { return leaf_->leaf(idx_%M); }
+            reference operator[](difference_type n) const { return *(this+n); }
 
             iterator& operator++() { update_leaf(idx_+1); return *this; }
             iterator operator++(int) { iterator ret = *this; ++(*this); return ret; }
             iterator& operator--() { update_leaf(idx_-1); return *this; }
             iterator operator--(int) { iterator ret = *this; --(*this); return ret; }
             
-            iterator& operator+=(int n) { update_leaf(idx_+n); return *this; }
-            iterator& operator-=(int n) { update_leaf(idx_-n); return *this; }
+            iterator& operator+=(difference_type n) { update_leaf(idx_+n); return *this; }
+            iterator& operator-=(difference_type n) { update_leaf(idx_-n); return *this; }
             
-            iterator operator+(int n) { return iterator(tree_, idx_+n); }
-            iterator operator-(int n) { return iterator(tree_, idx_-n); }
+            iterator operator+(difference_type n) const { return iterator(tree_, idx_+n); }
+            iterator operator-(difference_type n) const { return iterator(tree_, idx_-n); }
 
-            bool operator==(iterator other) { return this->idx_==other.idx_ && this->tree_==other.tree_; }
-            bool operator!=(iterator other) { return !(*this==other); }
+            bool operator==(iterator other) const { return this->idx_==other.idx_ && this->tree_==other.tree_; }
+            bool operator!=(iterator other) const { return !(*this==other); }
+
+            bool operator<(const iterator& other) const { return idx_<other.idx_; };
+            bool operator>(const iterator& other) const { return idx_>other.idx_; };
+            bool operator<=(const iterator& other) const { return idx_<=other.idx_; };
+            bool operator>=(const iterator& other) const { return idx_>=other.idx_; };
+
+            difference_type operator-(iterator other) const { return idx_-other.idx_; }
+            difference_type operator+(iterator other) const { return idx_+other.idx_; }
+
+            friend iterator operator+(difference_type n, const iterator& it) { return it+n; }
         };
         iterator begin() { return iterator(this); }
         iterator end() { return iterator(this, size_); }
 
         class reverse_iterator {
         public:
+            using difference_type = std::ptrdiff_t;   
+            using value_type = T;                    
+            using reference = const T&;                     
+            using pointer = T*;             
+            using iterator_category = std::random_access_iterator_tag;
+
             tree* tree_;
             size_t idx_;
             node* leaf_;
+
+            reverse_iterator() = default;
+
             reverse_iterator(tree* tree, size_t idx) 
              : tree_(tree), idx_(idx), leaf_(tree_->get_leaf(idx_)) {}
 
@@ -227,21 +256,32 @@ public:
                 idx_=newidx;
             }
 
-            const T& operator*() { return leaf_->leaf(idx_%M); }
+            const T& operator*() const { return leaf_->leaf(idx_%M); }
+            reference operator[](difference_type n) const { return *(this+n); }
 
             reverse_iterator& operator++() { update_leaf(idx_-1); return *this; }
             reverse_iterator operator++(int) { reverse_iterator ret = *this; ++(*this); return ret; }
             reverse_iterator& operator--() { update_leaf(idx_+1); return *this; }
             reverse_iterator operator--(int) { reverse_iterator ret = *this; --(*this); return ret; }
             
-            reverse_iterator& operator+=(int n) { update_leaf(idx_-n); return *this; }
-            reverse_iterator& operator-=(int n) { update_leaf(idx_+n); return *this; }
+            reverse_iterator& operator+=(difference_type n) { update_leaf(idx_-n); return *this; }
+            reverse_iterator& operator-=(difference_type n) { update_leaf(idx_+n); return *this; }
             
-            reverse_iterator operator+(int n) { return reverse_iterator(tree_, idx_-n); }
-            reverse_iterator operator-(int n) { return reverse_iterator(tree_, idx_+n); }
+            reverse_iterator operator+(difference_type n) const { return reverse_iterator(tree_, idx_-n); }
+            reverse_iterator operator-(difference_type n) const { return reverse_iterator(tree_, idx_+n); }
 
-            bool operator==(reverse_iterator other) { return this->idx_==other.idx_ && this->tree_==other.tree_; }
-            bool operator!=(reverse_iterator other) { return !(*this==other); }
+            bool operator==(reverse_iterator other) const { return this->idx_==other.idx_ && this->tree_==other.tree_; }
+            bool operator!=(reverse_iterator other) const { return !(*this==other); }
+
+            bool operator<(const reverse_iterator& other) const { return idx_>other.idx_; };
+            bool operator>(const reverse_iterator& other) const { return idx_<other.idx_; };
+            bool operator<=(const reverse_iterator& other) const { return idx_>=other.idx_; };
+            bool operator>=(const reverse_iterator& other) const { return idx_<=other.idx_; };
+
+            difference_type operator-(reverse_iterator other) const { return idx_+other.idx_; }
+            difference_type operator+(reverse_iterator other) const { return idx_-other.idx_; }
+
+            friend reverse_iterator operator+(difference_type n, const reverse_iterator& it) { return it+n; }
         };
         reverse_iterator rbegin() { return reverse_iterator(this, size_-1); }
         reverse_iterator rend() { return reverse_iterator(this, -1); }
@@ -367,5 +407,6 @@ public:
     }
 
 };
-
+static_assert(std::random_access_iterator<trees<int>::tree::iterator>);
+static_assert(std::random_access_iterator<trees<int>::tree::reverse_iterator>);
 }
