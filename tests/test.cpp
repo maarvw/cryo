@@ -255,3 +255,42 @@ TEST_CASE("sets long strings") {
     CHECK(t2.size()==1);
     CHECK(t2.contains("looooooooooooooooooooooooooooong string"));  
 }
+
+TEST_CASE("sets adding stuff") {
+    auto m1 = sets<int>(1);
+    auto s1 = m1.get();
+    auto s2=s1.insert(2);
+    auto s3 = s2.insert({3,4,5,6,7,8});
+    auto m2 = sets<int>({1,2,3,4,5});
+    auto t1 = m2.get();
+    auto t2 = t1.insert(6);
+
+    CHECK(s1.size()==1);
+    CHECK(s1.contains(1));
+    CHECK(s2.size()==2);
+    CHECK(s2.contains(2));
+    CHECK(!s2.contains(3));
+    CHECK(s3.size()==8);
+    for (int i=3;i<=8;i++) CHECK(s3.contains(i));
+    CHECK(t1.size()==5);
+    for (int i=1;i<=5;i++) CHECK(t1.contains(i));
+    CHECK(t2.size()==6);
+    for (int i=1;i<=6;i++) CHECK(s3.contains(i));
+    CHECK(!t1.contains(6));
+}
+
+TEST_CASE("sets iterators") {
+    auto meister = sets<int>({6,3,8,35,1,9});
+    std::vector<int> check = {1,3,6,8,9,35};
+    auto t1 = meister.get(); 
+    auto it = t1.begin();
+    CHECK(*it==check[0]);
+    for (int i=1;i<=5;i++) {
+        it++;
+        CHECK(*it==check[i]);
+    }
+    for (int i=4; i>=0;i--) {
+        it--;
+        CHECK(*it==check[i]);
+    }
+}
