@@ -17,15 +17,25 @@ class sets {
     public:
         class node {
             public:
-            node* left_;
-            node* right_;
-            T val_;
-
+            
             node(node* l, node* r, T val) :
                 left_(l), right_(r), val_(val) {}
 
             node(T val) :
                 left_(nullptr), right_(nullptr), val_(val) {}
+
+            const T& val() const { return val_; }
+            node* left() const { return left_ ; }
+            node* right() const { return right_; }
+
+            void set_left(node* n) { left_ = n; }
+            void set_right(node* n) { right_ = n; }
+            
+            private:
+
+            node* left_;
+            node* right_;
+            const T val_;
         };
 
         node* root_;
@@ -66,9 +76,9 @@ class sets {
 
         node* insert_helper(node* n, T elem) {
             if (n==nullptr) return new (arena_->allocate<node>(1)) node(elem);
-            if (n->val_==elem) throw std::runtime_error("dummer hurensohn");
-            if (elem>n->val_) return new (arena_->allocate<node>(1)) node(n->left_, insert_helper(n->right_, elem), n->val_);
-            else return new (arena_->allocate<node>(1)) node(insert_helper(n->left_, elem),n->right_, n->val_);
+            if (n->val()==elem) throw std::runtime_error("dummer hurensohn");
+            if (elem>n->val()) return new (arena_->allocate<node>(1)) node(n->left(), insert_helper(n->right(), elem), n->val());
+            else return new (arena_->allocate<node>(1)) node(insert_helper(n->left(), elem),n->right(), n->val());
         }
 
         void insert_primitive(T elem) {
@@ -82,12 +92,13 @@ class sets {
             node* prev=nullptr;
             while (cur!=nullptr) {
                 prev=cur;
-                if (elem>cur->val_) cur=cur->right_;
-                else if (elem<cur->val_) cur=cur->left_;
+                if (elem>cur->val()) cur=cur->right();
+                else if (elem<cur->val()) cur=cur->left();
                 else throw std::runtime_error("dummer hurensohn");
             }
             node* newnode = new (arena_->allocate<node>(1)) node(elem);
-            (elem>prev->val_ ? prev->right_ : prev->left_) = newnode;
+            if (elem>prev->val()) prev->set_right(newnode);
+            else prev->set_left(newnode);
         }
 
         bool contains(T elem) {
@@ -96,9 +107,9 @@ class sets {
 
         bool contains_helper(node* n, T elem) {
             if (n==nullptr) return false;
-            if (n->val_==elem) return true;
-            if (n->val_>elem) return contains_helper(n->left_, elem);
-            else return contains_helper(n->right_, elem);
+            if (n->val()==elem) return true;
+            if (n->val()>elem) return contains_helper(n->left(), elem);
+            else return contains_helper(n->right(), elem);
         }
 
     };
@@ -111,6 +122,9 @@ public:
     
     sets(T elem) :
         initial_set(set(elem, &arena_)) {}
+
+    sets(std::initializer_list<T> elems) :
+        initial_set(elems, &arena_) {}
 
     set get() {
         return initial_set;

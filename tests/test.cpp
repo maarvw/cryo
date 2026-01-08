@@ -1,5 +1,6 @@
 #include <iterator>
 #include <stdexcept>
+#include <string>
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 
 #include<doctest/doctest.h>
@@ -233,4 +234,24 @@ TEST_CASE("sets") {
     CHECK(!s1.contains(2));
     CHECK(s1.size()==1);
     CHECK(s2.size()==2);
+}
+
+TEST_CASE("sets strings") {
+    auto m1 = sets<string>("a");
+    auto s1 = m1.get();
+    auto s2=s1.insert("b");
+    CHECK(s1.contains("a"));
+    CHECK(s2.contains("a"));
+    CHECK(s2.contains("b"));
+    CHECK(!s1.contains("b"));
+    CHECK(s1.size()==1);
+    CHECK(s2.size()==2);
+}
+
+TEST_CASE("sets long strings") {
+    auto meister = sets<string>();
+    auto t1 = meister.get();
+    auto t2 = t1.insert("looooooooooooooooooooooooooooong string");
+    CHECK(t2.size()==1);
+    CHECK(t2.contains("looooooooooooooooooooooooooooong string"));  
 }
