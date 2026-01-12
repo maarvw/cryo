@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <initializer_list>
 #include <iostream>
+#include <iterator>
 #include <ostream>
 #include <stdexcept>
 #include <type_traits>
@@ -60,8 +61,8 @@ class sets {
             bool has_right() { return right_!=nullptr; }
             bool is_root() { return parent_==nullptr; }
 
-            bool is_right() { return parent()->right()==this; }
-            bool is_left() { return parent()->left()==this; }
+            bool is_right() { return !is_root() && parent()->right()==this; }
+            bool is_left() { return !is_root() && parent()->left()==this; }
 
             node* leftmost() {
                 node* n = this;
@@ -81,7 +82,7 @@ class sets {
                     cur = cur->leftmost();
                     return cur;
                 }
-                if (cur->is_root()) throw std::runtime_error("dummer hurensohn");
+                if (is_root()) return nullptr;
                 if (cur->is_left()) return cur->parent();
                 while (cur->is_right()) cur=cur->parent();
                 cur=cur->parent();
@@ -95,7 +96,7 @@ class sets {
                     cur = cur->rightmost();
                     return cur;
                 }
-                if (cur->is_root()) throw std::runtime_error("dummer hurensohn");
+                if (is_root()) return nullptr;
                 if (cur->is_right()) return cur->parent();
                 while (cur->is_left()) cur=cur->parent();
                 cur=cur->parent();
@@ -210,6 +211,7 @@ class sets {
         public:
             using difference_type = std::ptrdiff_t;
             using value_type = T;
+            using iterator_category = std::bidirectional_iterator_tag;
 
             node* current;
 
@@ -226,7 +228,7 @@ class sets {
             iterator& operator--() { current=current->prev(); return *this; }
             iterator operator--(int) { iterator ret = *this; --(*this); return ret; }
 
-            bool operator==(iterator other) { return this->current->val() == other.current->val(); }
+            bool operator==(iterator other) { return (current==nullptr&&other.current==nullptr) || (current!=nullptr&&other.current!=nullptr && this->current->val() == other.current->val()); }
             bool operator!=(iterator other) { return !(*this==other); }
 
             bool operator<(const iterator& other) const { return this->current->val()<other->current->val(); };
@@ -235,8 +237,38 @@ class sets {
             bool operator>=(const iterator& other) const { return this->current->val()>=other->current->val(); };
         };
         iterator begin() { return iterator(root_->leftmost()); }
-        iterator end() { return iterator(root_->rightmost()); }
+        iterator end() { return iterator(nullptr); }
 
+        class reverse_iterator {
+        public:
+            using difference_type = std::ptrdiff_t;
+            using value_type = T;
+
+            node* current;
+
+            reverse_iterator() = default;
+
+            reverse_iterator(node* n) :
+                current(n) {}
+
+            const T& operator*() const {return current->val(); }
+
+            reverse_iterator& operator++() { current=current->prev(); return *this; }
+            reverse_iterator operator++(int) { reverse_iterator ret = *this; ++(*this); return ret; }
+
+            reverse_iterator& operator--() { current=current->next(); return *this; }
+            reverse_iterator operator--(int) { reverse_iterator ret = *this; --(*this); return ret; }
+
+            bool operator==(reverse_iterator other) { return (current==nullptr&&other.current==nullptr) || (current!=nullptr&&other.current!=nullptr && this->current->val() == other.current->val()); }
+            bool operator!=(reverse_iterator other) { return !(*this==other); }
+
+            bool operator<(const reverse_iterator& other) const { return this->current->val()>other->current->val(); };
+            bool operator>(const reverse_iterator& other) const { return this->current->val()<other->current->val(); };
+            bool operator<=(const reverse_iterator& other) const { return this->current->val()>=other->current->val(); };
+            bool operator>=(const reverse_iterator& other) const { return this->current->val()<=other->current->val(); };
+        };
+        reverse_iterator rbegin() { return reverse_iterator(root_->rightmost()); }
+        reverse_iterator rend() { return reverse_iterator(nullptr); }
     };
 
     set initial_set;

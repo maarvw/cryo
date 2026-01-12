@@ -294,4 +294,39 @@ TEST_CASE("sets iterators") {
         it--;
         CHECK(*it==check[i]);
     }
+    int i=0;
+    for (auto i1 = t1.begin(); i1!=t1.end(); i1++){
+        CHECK(*i1==check[i]);
+        i++;        
+    }
+    CHECK(i==t1.size());
+
+    i=0;
+    for (int v : t1) {
+       CHECK(v==check[i]);
+        i++;         
+    }
+    CHECK(i==t1.size());
+}
+
+TEST_CASE("sets reverse iterator") {
+    auto meister = sets<int>({6,3,8,35,1,9});
+    std::vector<int> check = {35,9,8,6,3,1};
+    auto t1 = meister.get(); 
+    auto it = t1.rbegin();
+    CHECK(*it==check[0]);
+    for (int i=1;i<=5;i++) {
+        it++;
+        CHECK(*it==check[i]);
+    }
+    for (int i=4; i>=0;i--) {
+        it--;
+        CHECK(*it==check[i]);
+    }
+    int i=0;
+    for (auto i1 = t1.rbegin(); i1!=t1.rend(); i1++){
+        CHECK(*i1==check[i]);
+        i++;        
+    }
+    CHECK(i==t1.size());
 }
