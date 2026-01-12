@@ -4,6 +4,7 @@
 #include <iostream>
 #include <ostream>
 #include <stdexcept>
+#include <type_traits>
 using arena = fe::Arena;
 
 namespace cryo {
@@ -19,15 +20,34 @@ class sets {
             public:
 
             node(T val) :
-                left_(nullptr), right_(nullptr), parent_(nullptr), val_(val) {}     
+                left_(nullptr), right_(nullptr), parent_(nullptr) {
+                    if (!std::is_trivially_default_constructible_v<T>)
+                        new (&val_) T();
+                    val_=val;
+                }     
+
+            ~node() { 
+                if (std::is_trivially_destructible_v<T>) return;
+               // no val_.~T(); necessary, is done automatically at the end, i guess because value not pointer?
+               if (has_left())  left_->~node(); 
+               if (has_right()) right_->~node(); 
+            }
 
             node(node* l, node* r, T val) :
-                left_(l), right_(r), parent_(nullptr), val_(val) {}
+                left_(l), right_(r), parent_(nullptr) {
+                    if (!std::is_trivially_default_constructible_v<T>)
+                        new (&val_) T();
+                    val_=val;
+                }
 
             node(node* l, node* r, node* p, T val) :
-                left_(l), right_(r), parent_(p), val_(val) {}
+                left_(l), right_(r), parent_(p) {
+                    if (!std::is_trivially_default_constructible_v<T>)
+                        new (&val_) T();
+                    val_=val;
+                }
 
-            const T& val() const { return val_; }
+            T& val() { return val_; }
             node* left() const { return left_ ; }
             node* right() const { return right_; }
             node* parent() const { return parent_; }
@@ -87,7 +107,7 @@ class sets {
             node* left_;
             node* right_;
             node* parent_;
-            const T val_;
+            T val_;
         };
 
         node* root_;
@@ -116,10 +136,10 @@ class sets {
         }
 
         bool contains_helper(node* n, T elem) {
-            if (n==nullptr) return false;
+            if (n==nullptr)     return false;
             if (n->val()==elem) return true;
-            if (n->val()>elem) return contains_helper(n->left(), elem);
-            else return contains_helper(n->right(), elem);
+            if (n->val()>elem)  return contains_helper(n->left(), elem);
+            else                return contains_helper(n->right(), elem);
         }
 
         void insert_primitive(T elem) {
@@ -145,6 +165,11 @@ class sets {
 
     public:
 
+        ~set() {
+            if (root_==nullptr) return;
+            root_->~node();
+        }
+
         size_t size() const { return size_; }
 
         set(arena* arena) : 
@@ -164,8 +189,8 @@ class sets {
         set insert(T elem) {
             assert(!contains(elem)); //assume elem isnt already inserted
             if (root_==nullptr) {
-                node newnode = node(elem);
-                return set(arena_, &newnode, 1);
+                node* newnode = new (arena_->allocate<node>(1)) node(elem);
+                return set(arena_, newnode, 1);
             }
             return set(arena_,insert_helper(root_, elem),size_+1);
         }

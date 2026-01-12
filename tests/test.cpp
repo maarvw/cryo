@@ -250,6 +250,7 @@ TEST_CASE("sets strings") {
 
 TEST_CASE("sets long strings") {
     auto meister = sets<string>();
+    string l = "looooooooooooooooooooooooooooong string";
     auto t1 = meister.get();
     auto t2 = t1.insert("looooooooooooooooooooooooooooong string");
     CHECK(t2.size()==1);
