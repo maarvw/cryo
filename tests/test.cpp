@@ -15,25 +15,25 @@ using cryo::sets;
 
 TEST_CASE("adding stuff"){
     vectors meister = vectors<int>(4);
-    vectors<int>::vector t1 = meister.get();
+    auto t1 = meister.get();
     CHECK(t1.size()==1);
     CHECK(t1[0]==4);
-    vectors<int>::vector t2 = t1.push_back(7);
+    auto t2 = t1.push_back(7);
     CHECK(t1.size()==1);
     CHECK(t1[0]==4);
     CHECK(t2.size()==2);
     CHECK(t2[0]==4);
     CHECK(t2[1]==7);
-    vectors<int>::vector t3 = t1.push_back(5);
-    vectors<int>::vector t4 = t3.insert(0, 42);
+    auto t3 = t1.push_back(5);
+    auto t4 = t3.insert(0, 42);
     CHECK(t3[1]==5);
     CHECK(t4[0]==42);
 }
 
 TEST_CASE("push_back-multiple"){
     vectors meister = vectors<int>(42);
-    vectors<int>::vector vector1 = meister.get();
-    vectors<int>::vector vector2 = vector1.push_back({1,2,3,4,5,6,7,8,9});
+    auto vector1 = meister.get();
+    auto vector2 = vector1.push_back({1,2,3,4,5,6,7,8,9});
     CHECK(vector2.size()==10);
     CHECK(vector2[0]==42);
     CHECK(vector2[4]==4);
@@ -41,8 +41,8 @@ TEST_CASE("push_back-multiple"){
 
 TEST_CASE("strings") { //strings machen stress
     vectors meister = vectors<string>("hallo");
-    vectors<string>::vector vector1 = meister.get();
-    vectors<string>::vector vector2 = vector1.push_back("hi");
+    auto vector1 = meister.get();
+    auto vector2 = vector1.push_back("hi");
     CHECK(vector2[1]=="hi");
 }
 

@@ -10,9 +10,8 @@
 #include "../../external/fe/include/fe/arena.h"
 using arena = fe::Arena;
 namespace cryo {
-/*radix balanced tree with persistent functionality,
-  serves as underlying datastructure for containers.
-  represents a "family" of trees*/
+/*vector implementation using radix balanced tree with 
+  persistent functionality, represents a "family" of vectors*/
 template<typename T, size_t B = 5>
 class vectors {
 
@@ -20,35 +19,13 @@ class vectors {
     arena arena_;
     /*amount of array elements per node (power of 2)*/
     static const size_t M = 1 << B;    
-    /*the initial tree generated from this trees element*/
-    
+
 public:
-    class vector;
-    vector initial_vector;
-    /*default constuctor creating 1 empty tree*/
-    vectors() :
-        initial_vector(vector(&arena_)) {}
-
-    /*constructor creating tree with 1 element*/
-    vectors(T elem) :
-        initial_vector(vector(elem, &arena_)) {}
-
-    /*constructor creating tree with initial elements*/
-    vectors(std::initializer_list<T> elems) :
-        initial_vector(vector(elems, &arena_)) {}
-
-    /*returns the initial tree created from these trees*/
-    vector get() {
-        return initial_vector;
-    }
     /*singular tree within the family with
     individual root element*/
     class vector {
     using arena = fe::Arena;
-    public:
-        ~vector(){
-            root_->~node();
-        }
+
     private:
         /*node of the rbtree*/
         class node {
@@ -113,6 +90,87 @@ public:
         arena* arena_;
 
         vector() = delete;
+        /*constructor for new tree, only intended to be used by update functions*/
+        vector(node* root, size_t size, size_t shift, size_t capacity, arena* arena) :
+            root_(root), size_(size), shift_(shift), capacity_(capacity), arena_(arena) {}
+
+        /*initialises empty tree to be used by constructors*/
+        void empty_init() {
+            size_ = 0;
+            root_ = new (arena_->allocate<node>(1)) node(true);
+            shift_ = 0; //bei erhöhung der höhe +B
+            capacity_ = M;
+        }
+
+        /*adds element in non-persistent way, not intended to be used outside of constructors*/
+        void add_primitive(T elem) {
+            size_++;
+            if (size_>capacity_) { //new root
+                int s = shift_;
+                node* newroot = new (arena_->allocate<node>(1)) node(false);
+                newroot->child(0)=root_;
+                newroot->child(1)= new (arena_->allocate<node>(1)) node(root_->is_leaf());
+                node* newnode = newroot->child(1); //newroot remains "root" of new subtree
+                while (s!=0) {
+                    newnode->child(0) = new (arena_->allocate<node>(1)) node(s==B);
+                    newnode=newnode->child(0);
+                    s -= B;
+                }
+                newnode->leaf(0)=elem;
+                root_ = newroot;
+                shift_+=B;
+                capacity_*=M;
+                return;
+            }
+            node* cur = root_;
+            int i = size_-1;
+            int s = shift_;
+            while (s != 0) {
+                s -= B;
+                if (cur->child((i>>s)%M)==nullptr) {
+                    cur->child((i>>s)%M) = new (arena_->allocate<node>(1)) node(s==0);
+                }
+                cur = cur->child((i>>s)%M);
+            }
+            cur->leaf(i%M)=elem;
+        }
+
+        /*recursive helper function adding an element at a specific index in the tree,
+        expanding the tree if necessary. creates new nodes and returns a new root element
+        for the new persistent "copy"*/
+        node* insert_at_index(T elem, node* cur, int s, size_t i) {
+            if (s==0) {
+                //copy & change leaf
+                node* newleaf = new (arena_->allocate<node>(1)) node(true);
+                std::copy_n(cur->leaves(), M, newleaf->leaves());
+                newleaf->leaf(i%M)=elem;
+                return newleaf;
+            }
+            node* newinner = new (arena_->allocate<node>(1)) node(false);
+            std::copy_n(cur->children(), M, newinner->children());
+            if (cur->child((i>>s)%M)==nullptr) { //need to build new subtree of inners
+                node* newnode = newinner; //newinner remains "root" of new subtree
+                while (s!=0) {
+                    newnode->child((i>>s)%M) = new (arena_->allocate<node>(1)) node(s==B);
+                    newnode=newnode->child((i>>s)%M); //(i>>s)%M should always be 0 in this loop but just in case
+                    s -= B;
+                }
+                newnode->leaf(0)=elem;
+                return newinner;
+            }
+            newinner->child((i>>s)%M)=insert_at_index(elem, cur->child((i>>s)%M), s-B, i);
+            return newinner;
+        }
+
+        node* get_leaf(size_t i) const {
+            node* cur = root_;
+            int s=shift_;
+            while (!cur->is_leaf()){
+                cur=cur->child((i>>s)%M);
+                s-=B;
+            }
+            return cur;
+        }
 
     public:
         /*default constructor for empty tree*/
@@ -134,6 +192,10 @@ public:
             empty_init();
             for (T elem : elems)
                 add_primitive(elem);
+        }
+
+        ~vector(){
+            root_->~node();
         }
 
         /*adds new element to the tree, expanding the tree if necessary.
@@ -208,19 +270,19 @@ public:
             using pointer = T*;             
             using iterator_category = std::random_access_iterator_tag;
 
-            vector* tree_;
+            vector* vec_;
             size_t idx_;
             node* leaf_;
 
             iterator() = default;
 
             iterator(vector* tree, size_t idx = 0) 
-             : tree_(tree), idx_(idx), leaf_(tree_->get_leaf(idx_)) {}
+             : vec_(tree), idx_(idx), leaf_(vec_->get_leaf(idx_)) {}
 
 
             void update_leaf(size_t newidx) {
                 size_t diff = newidx-idx_;
-                if (!((idx_%M)+diff>=0&&(idx_%M)+diff<M)) leaf_=tree_->get_leaf(newidx);
+                if (!((idx_%M)+diff>=0&&(idx_%M)+diff<M)) leaf_=vec_->get_leaf(newidx);
                 idx_=newidx;
             }
 
@@ -235,10 +297,10 @@ public:
             iterator& operator+=(difference_type n) { update_leaf(idx_+n); return *this; }
             iterator& operator-=(difference_type n) { update_leaf(idx_-n); return *this; }
             
-            iterator operator+(difference_type n) const { return iterator(tree_, idx_+n); }
-            iterator operator-(difference_type n) const { return iterator(tree_, idx_-n); }
+            iterator operator+(difference_type n) const { return iterator(vec_, idx_+n); }
+            iterator operator-(difference_type n) const { return iterator(vec_, idx_-n); }
 
-            bool operator==(iterator other) const { return this->idx_==other.idx_ && this->tree_==other.tree_; }
+            bool operator==(iterator other) const { return this->idx_==other.idx_ && this->vec_==other.vec_; }
             bool operator!=(iterator other) const { return !(*this==other); }
 
             bool operator<(const iterator& other) const { return idx_<other.idx_; };
@@ -263,19 +325,19 @@ public:
             using pointer = T*;             
             using iterator_category = std::random_access_iterator_tag;
 
-            vector* tree_;
+            vector* vec_;
             size_t idx_;
             node* leaf_;
 
             reverse_iterator() = default;
 
             reverse_iterator(vector* tree, size_t idx) 
-             : tree_(tree), idx_(idx), leaf_(tree_->get_leaf(idx_)) {}
+             : vec_(tree), idx_(idx), leaf_(vec_->get_leaf(idx_)) {}
 
 
             void update_leaf(size_t newidx) {
                 size_t diff = newidx-idx_;
-                if (!((idx_%M)-diff>=0&&(idx_%M)-diff<M)) leaf_=tree_->get_leaf(newidx);
+                if (!((idx_%M)-diff>=0&&(idx_%M)-diff<M)) leaf_=vec_->get_leaf(newidx);
                 idx_=newidx;
             }
 
@@ -290,10 +352,10 @@ public:
             reverse_iterator& operator+=(difference_type n) { update_leaf(idx_-n); return *this; }
             reverse_iterator& operator-=(difference_type n) { update_leaf(idx_+n); return *this; }
             
-            reverse_iterator operator+(difference_type n) const { return reverse_iterator(tree_, idx_-n); }
-            reverse_iterator operator-(difference_type n) const { return reverse_iterator(tree_, idx_+n); }
+            reverse_iterator operator+(difference_type n) const { return reverse_iterator(vec_, idx_-n); }
+            reverse_iterator operator-(difference_type n) const { return reverse_iterator(vec_, idx_+n); }
 
-            bool operator==(reverse_iterator other) const { return this->idx_==other.idx_ && this->tree_==other.tree_; }
+            bool operator==(reverse_iterator other) const { return this->idx_==other.idx_ && this->vec_==other.vec_; }
             bool operator!=(reverse_iterator other) const { return !(*this==other); }
 
             bool operator<(const reverse_iterator& other) const { return idx_>other.idx_; };
@@ -321,94 +383,31 @@ public:
             return newtree;
         }
 
-    private:
-        /*constructor for new tree, only intended to be used by update functions*/
-        vector(node* root, size_t size, size_t shift, size_t capacity, arena* arena) :
-            root_(root), size_(size), shift_(shift), capacity_(capacity), arena_(arena) {}
-
-        /*initialises empty tree to be used by constructors*/
-        void empty_init() {
-            size_ = 0;
-            root_ = new (arena_->allocate<node>(1)) node(true);
-            shift_ = 0; //bei erhöhung der höhe +B
-            capacity_ = M;
-        }
-
-        /*adds element in non-persistent way, not intended to be used outside of constructors*/
-        void add_primitive(T elem) {
-            size_++;
-            if (size_>capacity_) { //new root
-                int s = shift_;
-                node* newroot = new (arena_->allocate<node>(1)) node(false);
-                newroot->child(0)=root_;
-                newroot->child(1)= new (arena_->allocate<node>(1)) node(root_->is_leaf());
-                node* newnode = newroot->child(1); //newroot remains "root" of new subtree
-                while (s!=0) {
-                    newnode->child(0) = new (arena_->allocate<node>(1)) node(s==B);
-                    newnode=newnode->child(0);
-                    s -= B;
-                }
-                newnode->leaf(0)=elem;
-                root_ = newroot;
-                shift_+=B;
-                capacity_*=M;
-                return;
-            }
-            node* cur = root_;
-            int i = size_-1;
-            int s = shift_;
-            while (s != 0) {
-                s -= B;
-                if (cur->child((i>>s)%M)==nullptr) {
-                    cur->child((i>>s)%M) = new (arena_->allocate<node>(1)) node(s==0);
-                }
-                cur = cur->child((i>>s)%M);
-            }
-            cur->leaf(i%M)=elem;
-        }
-
-        /*recursive helper function adding an element at a specific index in the tree,
-        expanding the tree if necessary. creates new nodes and returns a new root element
-        for the new persistent "copy"*/
-        node* insert_at_index(T elem, node* cur, int s, size_t i) {
-            if (s==0) {
-                //copy & change leaf
-                node* newleaf = new (arena_->allocate<node>(1)) node(true);
-                std::copy_n(cur->leaves(), M, newleaf->leaves());
-                newleaf->leaf(i%M)=elem;
-                return newleaf;
-            }
-            node* newinner = new (arena_->allocate<node>(1)) node(false);
-            std::copy_n(cur->children(), M, newinner->children());
-            if (cur->child((i>>s)%M)==nullptr) { //need to build new subtree of inners
-                node* newnode = newinner; //newinner remains "root" of new subtree
-                while (s!=0) {
-                    newnode->child((i>>s)%M) = new (arena_->allocate<node>(1)) node(s==B);
-                    newnode=newnode->child((i>>s)%M); //(i>>s)%M should always be 0 in this loop but just in case
-                    s -= B;
-                }
-                newnode->leaf(0)=elem;
-                return newinner;
-            }
-            newinner->child((i>>s)%M)=insert_at_index(elem, cur->child((i>>s)%M), s-B, i);
-            return newinner;
-        }
-
-        node* get_leaf(size_t i){
-            node* cur = root_;
-            int s=shift_;
-            while (!cur->is_leaf()){
-                cur=cur->child((i>>s)%M);
-                s-=B;
-            }
-            return cur;
-        }
-
     };
+    
+    /*the first vector generated at initialization*/
+    vector initial_vector;
 
+    /*default constuctor creating 1 empty vector*/
+    vectors() :
+        initial_vector(vector(&arena_)) {}
 
+    /*constructor creating vector with 1 element*/
+    vectors(T elem) :
+        initial_vector(vector(elem, &arena_)) {}
 
+    /*constructor creating vector with initial elements*/
+    vectors(std::initializer_list<T> elems) :
+        initial_vector(vector(elems, &arena_)) {}
+
+    /*returns the initial vector created from these vectors*/
+    vector get() const {
+        return initial_vector;
+    }
+
+//asserts to check if the iterators fit all criteria for being random access iterators
+static_assert(std::random_access_iterator<typename vector::iterator>);
+static_assert(std::random_access_iterator<typename vector::reverse_iterator>);
 };
-static_assert(std::random_access_iterator<vectors<int>::vector::iterator>);
-static_assert(std::random_access_iterator<vectors<int>::vector::reverse_iterator>);
+
 }

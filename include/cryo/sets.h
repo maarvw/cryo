@@ -12,27 +12,22 @@ namespace cryo {
 
 template<typename T>
 class sets {
+
     fe::Arena arena_;
 
+public:
     class set { //make it a binary tree for now
     using arena = fe::Arena;
+    
     private:
         class node {
-            public:
-
+        public:
             node(T val) :
                 left_(nullptr), right_(nullptr), parent_(nullptr) {
                     if (!std::is_trivially_default_constructible_v<T>)
                         new (&val_) T();
                     val_=val;
                 }     
-
-            ~node() { 
-                if (std::is_trivially_destructible_v<T>) return;
-               // no val_.~T(); necessary, is done automatically at the end, i guess because value not pointer?
-               if (has_left())  left_->~node(); 
-               if (has_right()) right_->~node(); 
-            }
 
             node(node* l, node* r, T val) :
                 left_(l), right_(r), parent_(nullptr) {
@@ -47,6 +42,13 @@ class sets {
                         new (&val_) T();
                     val_=val;
                 }
+
+            ~node() { 
+                if (std::is_trivially_destructible_v<T>) return;
+               // no val_.~T(); necessary, is done automatically at the end, i guess because value not pointer?
+               if (has_left())  left_->~node(); 
+               if (has_right()) right_->~node(); 
+            }
 
             T& val() { return val_; }
             node* left() const { return left_ ; }
@@ -103,7 +105,7 @@ class sets {
                 return cur;
             }
             
-            private:
+        private:
 
             node* left_;
             node* right_;
@@ -116,6 +118,8 @@ class sets {
         arena* arena_;
 
         size_t size_;      
+
+        set() = delete;
 
         set(arena* arena, node* root, size_t size) :
             root_(root), arena_(arena), size_(size) {}
@@ -213,12 +217,13 @@ class sets {
             using value_type = T;
             using iterator_category = std::bidirectional_iterator_tag;
 
+            set* set_;
             node* current;
 
             iterator() = default;
 
-            iterator(node* n) :
-                current(n) {}
+            iterator(set* set, node* n) :
+                set_(set), current(n) {}
 
             const T& operator*() const {return current->val(); }
 
@@ -228,28 +233,30 @@ class sets {
             iterator& operator--() { current=current->prev(); return *this; }
             iterator operator--(int) { iterator ret = *this; --(*this); return ret; }
 
-            bool operator==(iterator other) { return (current==nullptr&&other.current==nullptr) || (current!=nullptr&&other.current!=nullptr && this->current->val() == other.current->val()); }
-            bool operator!=(iterator other) { return !(*this==other); }
+            bool operator==(const iterator& other) const { return set_==other.set_ && ((current==nullptr&&other.current==nullptr) || (current!=nullptr&&other.current!=nullptr && this->current->val() == other.current->val())); }
+            bool operator!=(const iterator& other) const { return !(*this==other); }
 
             bool operator<(const iterator& other) const { return this->current->val()<other->current->val(); };
             bool operator>(const iterator& other) const { return this->current->val()>other->current->val(); };
             bool operator<=(const iterator& other) const { return this->current->val()<=other->current->val(); };
             bool operator>=(const iterator& other) const { return this->current->val()>=other->current->val(); };
         };
-        iterator begin() { return iterator(root_->leftmost()); }
-        iterator end() { return iterator(nullptr); }
+        iterator begin() { return iterator(this, root_->leftmost()); }
+        iterator end() { return iterator(this, nullptr); }
 
         class reverse_iterator {
         public:
             using difference_type = std::ptrdiff_t;
             using value_type = T;
+            using iterator_category = std::bidirectional_iterator_tag;
 
+            set* set_;
             node* current;
 
             reverse_iterator() = default;
 
-            reverse_iterator(node* n) :
-                current(n) {}
+            reverse_iterator(set* set, node* n) :
+                set_(set), current(n) {}
 
             const T& operator*() const {return current->val(); }
 
@@ -259,22 +266,19 @@ class sets {
             reverse_iterator& operator--() { current=current->next(); return *this; }
             reverse_iterator operator--(int) { reverse_iterator ret = *this; --(*this); return ret; }
 
-            bool operator==(reverse_iterator other) { return (current==nullptr&&other.current==nullptr) || (current!=nullptr&&other.current!=nullptr && this->current->val() == other.current->val()); }
-            bool operator!=(reverse_iterator other) { return !(*this==other); }
+            bool operator==(const reverse_iterator& other) const { return set_==other.set_ && ((current==nullptr&&other.current==nullptr) || (current!=nullptr&&other.current!=nullptr && this->current->val() == other.current->val())); }
+            bool operator!=(const reverse_iterator& other) const { return !(*this==other); }
 
             bool operator<(const reverse_iterator& other) const { return this->current->val()>other->current->val(); };
             bool operator>(const reverse_iterator& other) const { return this->current->val()<other->current->val(); };
             bool operator<=(const reverse_iterator& other) const { return this->current->val()>=other->current->val(); };
             bool operator>=(const reverse_iterator& other) const { return this->current->val()<=other->current->val(); };
         };
-        reverse_iterator rbegin() { return reverse_iterator(root_->rightmost()); }
-        reverse_iterator rend() { return reverse_iterator(nullptr); }
+        reverse_iterator rbegin() { return reverse_iterator(this, root_->rightmost()); }
+        reverse_iterator rend() { return reverse_iterator(this, nullptr); }
     };
 
     set initial_set;
-
-public:
-
 
     sets() :
         initial_set(set(&arena_)) {}
@@ -290,8 +294,8 @@ public:
     }
 
 
-
+static_assert(std::bidirectional_iterator<typename set::iterator>);
+static_assert(std::bidirectional_iterator<typename set::reverse_iterator>);
 };
-
 
 }
