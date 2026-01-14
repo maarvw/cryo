@@ -32,9 +32,15 @@ public:
         public:
             node(bool is_leaf)
              : is_leaf_(is_leaf) {
-                if (!std::is_trivially_default_constructible_v<T> && is_leaf) {
+                if (is_leaf) {
+                    if (!std::is_trivially_default_constructible_v<T> && is_leaf) {
+                        for (size_t i = 0; i < M; ++i)
+                            new (&leaves_[i]) T();
+                    }
+                }
+                else {
                     for (size_t i = 0; i < M; ++i)
-                        new (&leaves_[i]) T();
+                        children_[i] = nullptr; //without this: misaligned memory error after exactly 81952 inserts
                 }
             }
 
@@ -69,8 +75,6 @@ public:
 
         private:
             const bool is_leaf_;
-
-            void* hurensohn; //wenn ich ihn lösche verreckt der test wegen misaligned address??????
 
             union {
                 node* children_[M];
@@ -142,7 +146,7 @@ public:
             if (s==0) {
                 //copy & change leaf
                 node* newleaf = new (arena_->allocate<node>(1)) node(true);
-                std::copy_n(cur->leaves(), M, newleaf->leaves());
+                std::copy_n(cur->leaves(), M, newleaf->leaves()); 
                 newleaf->leaf(i%M)=elem;
                 return newleaf;
             }
