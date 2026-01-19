@@ -4,7 +4,7 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 
 #include<doctest/doctest.h>
-#include<cryo/sets.h>
+#include<cryo/setmaps.h>
 #include"cryo/vectors.h"
 #include<iostream>
 using std::cout;
@@ -331,13 +331,22 @@ TEST_CASE("sets reverse iterator") {
     CHECK(i==t1.size());
 }
 
-TEST_CASE("map") {
-    auto ms = setmaps<int, int>();
+TEST_CASE("map basics") {
+    auto ms = setmaps<int, int>({1,1});
     auto m0 = ms.get();
     auto m1 = m0.insert(1, -1);
     auto m2 = m1.insert(2, -2);
     auto m3 = m2.insert(5,9);
     auto m4 = m3.insert(1, 42);
+    CHECK(m1.contains(1));
+    CHECK(m2.contains(1));
+    CHECK(m2.contains(2));
+    CHECK(m3.contains(1));
+    CHECK(m3.contains(2));
+    CHECK(m3.contains(5));
+    CHECK(m4.contains(1));
+    CHECK(m4.contains(2));
+    CHECK(m4.contains(5));
     CHECK(m1[1]==-1);
     CHECK(m2[1]==-1);
     CHECK(m2[2]==-2);
@@ -345,5 +354,9 @@ TEST_CASE("map") {
     CHECK(m3[5]==9);
     CHECK(m3[2]==-2);
     CHECK(m4[1]==42);
+    CHECK(m1.size()==1);
+    CHECK(m2.size()==2);
+    CHECK(m3.size()==3);
+    CHECK(m4.size()==3);
 }
 
