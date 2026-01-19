@@ -360,3 +360,44 @@ TEST_CASE("map basics") {
     CHECK(m4.size()==3);
 }
 
+TEST_CASE("map iterator") {
+    auto ms = setmaps<int,int>({0, 0});
+    auto m1 = ms.get();
+    auto m2 = m1.insert(1,-1);
+    auto m3 = m2.insert(2,-2);
+    auto m4 = m3.insert(3,-3);
+    auto m5 = m4.insert(4,-4);
+    auto m6 = m5.insert(5,-5);
+    int i=0;
+    for (auto it : m6) {
+        CHECK(m6[i]==-i);
+        CHECK(it.second==-i);
+        i++;
+    }
+}
+
+TEST_CASE("map int/string") {
+    auto ms=setmaps<int,string>({0,"null"});
+    auto m1=ms.get();
+    auto m2=m1.insert(6,"sechs");
+    auto m3=m2.insert({{1,"eins"},{2,"zwei"}});
+    auto m4=m3.insert(3,"dreidreidreidreidrei");
+    CHECK(m4[0]=="null");
+    CHECK(m4[1]=="eins");
+    CHECK(m4[2]=="zwei");
+    CHECK(m4[6]=="sechs");
+    CHECK(m4[3]=="dreidreidreidreidrei");
+}
+
+TEST_CASE("map string/int") {
+    auto ms=setmaps<string,int>({"null",0});
+    auto m1=ms.get();
+    auto m2=m1.insert("sechs",6);
+    auto m3=m2.insert({{"eins",1},{"zwei",2}});
+    auto m4=m3.insert("dreidreidreidreidrei",3);
+    CHECK(m4["null"]==0);
+    CHECK(m4["eins"]==1);
+    CHECK(m4["zwei"]==2);
+    CHECK(m4["sechs"]==6);
+    CHECK(m4["dreidreidreidreidrei"]==3);
+}

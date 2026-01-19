@@ -31,40 +31,64 @@ class setmaps {
     
     };
     fe::Arena arena_;
-    using value_type = std::conditional_t<std::is_same_v<V, void>, T, pair<T, V>>;
+    using value_type = std::conditional_t<std::is_void_v<V>, T, pair<T, V>>;
 
 public:
     class setmap { //make it a binary tree for now
     using arena = fe::Arena;
 
-    const bool is_set = std::is_same_v<V, void>;
+    const bool is_set = std::is_void_v<V>;
 
     private:
         class node {
         public:
             node(value_type val) :
                 left_(nullptr), right_(nullptr), parent_(nullptr) {
-                    if (!std::is_trivially_default_constructible_v<T>)
-                        new (&val_) T();
+                    if constexpr (std::is_void_v<V>) { //set 
+                        if (!std::is_trivially_default_constructible_v<T>)
+                            new (&val_) T();
+                    }
+                    else { //map
+                        if (!std::is_trivially_default_constructible_v<T>)
+                            new (&val_.first) T();
+                        if (!std::is_trivially_default_constructible_v<V>)
+                            new (&val_.second) V();
+                    }
                     val_=val;
                 }     
 
             node(node* l, node* r, value_type val) :
                 left_(l), right_(r), parent_(nullptr) {
-                    if (!std::is_trivially_default_constructible_v<T>)
-                        new (&val_) T();
+                    if constexpr (std::is_void_v<V>) { //set
+                        if (!std::is_trivially_default_constructible_v<T>)
+                            new (&val_) T();
+                    }
+                    else { //map
+                        if (!std::is_trivially_default_constructible_v<T>)
+                            new (&val_.first) T();
+                        if (!std::is_trivially_default_constructible_v<V>)
+                            new (&val_.second) V();
+                    }
                     val_=val;
                 }
 
             node(node* l, node* r, node* p, value_type val) :
                 left_(l), right_(r), parent_(p) {
-                    if (!std::is_trivially_default_constructible_v<T>)
-                        new (&val_) T();
+                    if constexpr (std::is_void_v<V>) { //set
+                        if (!std::is_trivially_default_constructible_v<T>)
+                            new (&val_) T();
+                    }
+                    else { //map
+                        if (!std::is_trivially_default_constructible_v<T>)
+                            new (&val_.first) T();
+                        if (!std::is_trivially_default_constructible_v<V>)
+                            new (&val_.second) V();
+                    }
                     val_=val;
                 }
 
             ~node() { 
-                if (std::is_trivially_destructible_v<T>) return;
+                if (std::is_trivially_destructible_v<T>&&std::is_trivially_destructible_v<V>) return;
                // no val_.~T(); necessary, is done automatically at the end, i guess because value not pointer?
                if (has_left())  left_->~node(); 
                if (has_right()) right_->~node(); 
@@ -308,7 +332,7 @@ public:
 
         //set specific functions------------------------------------------
         
-        template <typename U = V, typename = std::enable_if_t<std::is_same<U, void>::value>>
+        template <typename U = V, typename = std::enable_if_t<std::is_void_v<U>>>
         setmap insert(T elem) {
             assert(!contains(elem)); //assume elem isnt already inserted
             if (root_==nullptr) {
@@ -318,7 +342,7 @@ public:
             return setmap(arena_,insert_helper(root_, elem),size_+1);
         }
 
-        template <typename U = V, typename = std::enable_if_t<std::is_same<U, void>::value>>
+        template <typename U = V, typename = std::enable_if_t<std::is_void_v<U>>>
         setmap insert(std::initializer_list<T> elems) {
             setmap newset = insert(*elems.begin());
             for (auto elem = std::next(elems.begin(), 1); elem != elems.end(); ++elem)
@@ -326,7 +350,7 @@ public:
             return newset;
         }
 
-        template <typename U = V, typename = std::enable_if_t<!std::is_same<U, void>::value>>
+        template <typename U = V, typename = std::enable_if_t<!std::is_void_v<U>>>
         bool contains(value_type elem) {
             return contains_helper(root_, elem.first);
         }
@@ -334,13 +358,13 @@ public:
         //map specific functions------------------------------------------
 
         template<typename U = V>
-        auto operator[](T key) -> std::enable_if_t<!std::is_same<U, void>::value, const V>{
+        auto operator[](T key) -> std::enable_if_t<!std::is_void_v<U>, const V>{
             auto kek = find_helper(root_, key);
             if (kek==nullptr) throw std::runtime_error("key does not exist here");
             return kek->val().second;
         }
     
-        template <typename U = V, typename = std::enable_if_t<!std::is_same<U, void>::value>>        
+        template <typename U = V, typename = std::enable_if_t<!std::is_void_v<U>>>
         setmap insert(T key, U value) {
             if (root_==nullptr) {
                 node* newnode = new (arena_->allocate<node>(1)) node({key,value});
@@ -348,6 +372,15 @@ public:
             }
             size_t newsize = size_+!contains(key); //cursed
             return setmap(arena_,insert_helper(root_, {key,value}),newsize);
+        }
+
+        template <typename U = V, typename = std::enable_if_t<!std::is_void_v<U>>>
+        setmap insert(std::initializer_list<pair<T,V>> elems) {
+            auto bg = *elems.begin();
+            setmap newmap = insert(bg.first,bg.second);
+            for (auto elem = std::next(elems.begin(), 1); elem != elems.end(); ++elem)
+                newmap.insert_primitive(*elem);
+            return newmap;
         }
 
     };
