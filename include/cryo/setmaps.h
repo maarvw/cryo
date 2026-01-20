@@ -43,7 +43,7 @@ public:
         class node {
         public:
             node(value_type val) :
-                left_(nullptr), right_(nullptr), parent_(nullptr) {
+                is_red_(true), left_(nullptr), right_(nullptr), parent_(nullptr) {
                     if constexpr (std::is_void_v<V>) { //set 
                         if (!std::is_trivially_default_constructible_v<T>)
                             new (&val_) T();
@@ -58,7 +58,7 @@ public:
                 }     
 
             node(node* l, node* r, value_type val) :
-                left_(l), right_(r), parent_(nullptr) {
+                is_red_(true), left_(l), right_(r), parent_(nullptr) {
                     if constexpr (std::is_void_v<V>) { //set
                         if (!std::is_trivially_default_constructible_v<T>)
                             new (&val_) T();
@@ -73,7 +73,7 @@ public:
                 }
 
             node(node* l, node* r, node* p, value_type val) :
-                left_(l), right_(r), parent_(p) {
+                is_red_(true), left_(l), right_(r), parent_(p) {
                     if constexpr (std::is_void_v<V>) { //set
                         if (!std::is_trivially_default_constructible_v<T>)
                             new (&val_) T();
@@ -111,6 +111,12 @@ public:
 
             bool is_right() { return !is_root() && parent()->right()==this; }
             bool is_left() { return !is_root() && parent()->left()==this; }
+
+            bool is_red() { return is_red_; }
+            bool is_black() { return !is_red(); }
+
+            void set_red() { is_red_=true; }
+            void set_black() { is_red_=false; }
 
             node* leftmost() {
                 node* n = this;
@@ -153,11 +159,99 @@ public:
             
         private:
 
+            bool is_red_;
             node* left_;
             node* right_;
             node* parent_;
             value_type val_;
         };
+
+        void left_rotate(node* n) {
+            node* r = n->right();
+            n->set_right(r->left());
+            if (r->left() != nullptr) {
+                r->left()->set_parent(n);
+            }
+            r->set_parent(n->parent());
+            if (n->parent() == nullptr) {
+                root_ = r;
+            }
+            else if (n->is_left()) {
+                n->parent()->set_left(r);
+            }
+            else {
+                n->parent()->set_right(r);
+            }
+            r->set_left(n);
+            n->set_parent(r);
+        }
+
+        void rightRotate(node* n) {
+            node* l = n->left();
+            l->set_left(l->right());
+            if (l->right() != nullptr) {
+                l->right()->set_parent(n);
+            }
+            l->set_parent(n->parent());
+            if (n->parent() == nullptr) {
+                root_ = l;
+            }
+            else if (n->is_right()) {
+                n->parent()->set_right(l);
+            }
+            else {
+                n->parent()->set_left(l);
+            }
+            l->set_right(n);
+            n->set_parent(l);
+        }
+
+        void fix_insert(node* n) {
+            if (n==nullptr) return;
+            if (n->parent()==nullptr) return;
+            if (n->parent()->parent()==nullptr) return;
+            while (n != root_ && n->parent()->is_red()) {
+                if (n->parent()->is_left()) {
+                    if (!n->parent()->parent()->has_right()) return;
+                    node* u = n->parent()->parent()->right();
+                    if (u->is_red()) {
+                        n->parent()->set_black();
+                        u->set_black();
+                        n->parent()->parent()->set_red();
+                        n = n->parent()->parent();
+                    }
+                    else {
+                        if (n->is_right()) {
+                            n = n->parent();
+                            left_rotate(n);
+                        }
+                        n->parent()->set_black();
+                        n->parent()->parent()->set_red();
+                        rightRotate(n->parent()->parent());
+                    }
+                }
+                else {
+                    if (!n->parent()->parent()->has_left()) return;
+                    node* u = n->parent()->parent()->left();
+                    if (u->is_red()) {
+                        n->parent()->set_black();
+                        u->set_black();
+                        n->parent()->parent()->set_red();
+                        n = n->parent()->parent();
+                    }
+                    else {
+                        if (n->is_left()) {
+                            n = n->parent();
+                            rightRotate(n);
+                        }
+                        n->parent()->set_black();
+                        n->parent()->parent()->set_red();
+                        left_rotate(n->parent()->parent());
+                    }
+                }
+            }
+            root_->set_black();
+        }
 
         node* root_;
 
@@ -218,6 +312,7 @@ public:
             size_++;
             if (root_==nullptr) {
                 root_ = new (arena_->allocate<node>(1)) node(elem);
+                root_->set_black();
                 return;
             }
             node* cur = root_;
@@ -232,6 +327,9 @@ public:
             if (prev->val()<elem) prev->set_right(newnode);
             else prev->set_left(newnode);
             newnode->set_parent(prev);
+            if constexpr (std::is_void_v<V>) fix_insert(find_helper(root_, elem));
+            if constexpr (!std::is_void_v<V>) fix_insert(find_helper(root_, elem.first));
+
         }
 
     public:
@@ -252,7 +350,7 @@ public:
         setmap(std::initializer_list<value_type> elems, arena* arena) :
         root_(nullptr), arena_(arena), size_(0) {
             for (T elem : elems)
-            insert_primitive(elem);
+                insert_primitive(elem);
         }
 
         class iterator {
@@ -337,9 +435,12 @@ public:
             assert(!contains(elem)); //assume elem isnt already inserted
             if (root_==nullptr) {
                 node* newnode = new (arena_->allocate<node>(1)) node(elem);
+                newnode->set_black();
                 return setmap(arena_, newnode, 1);
             }
-            return setmap(arena_,insert_helper(root_, elem),size_+1);
+            node* newnode = insert_helper(root_, elem);
+            fix_insert(find_helper(root_, elem));
+            return setmap(arena_,newnode,size_+1);
         }
 
         template <typename U = V, typename = std::enable_if_t<std::is_void_v<U>>>
@@ -371,7 +472,9 @@ public:
                 return setmap(arena_, newnode, 1);
             }
             size_t newsize = size_+!contains(key); //cursed
-            return setmap(arena_,insert_helper(root_, {key,value}),newsize);
+            node* newnode = insert_helper(root_, {key,value});
+            fix_insert(find_helper(root_, key));
+            return setmap(arena_,newnode,newsize);
         }
 
         template <typename U = V, typename = std::enable_if_t<!std::is_void_v<U>>>
