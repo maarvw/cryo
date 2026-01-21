@@ -4,6 +4,7 @@
 #include <iostream> //löschen wenn kein debug mehr nötig
 #include <iterator>
 #include <stdexcept>
+#include <string>
 #include <type_traits>
 using arena = fe::Arena;
 
@@ -169,11 +170,11 @@ public:
         void left_rotate(node* n) {
             node* r = n->right();
             n->set_right(r->left());
-            if (r->left() != nullptr) {
+            if (r->has_left()) {
                 r->left()->set_parent(n);
             }
             r->set_parent(n->parent());
-            if (n->parent() == nullptr) {
+            if (n->is_root()) {
                 root_ = r;
             }
             else if (n->is_left()) {
@@ -188,12 +189,12 @@ public:
 
         void rightRotate(node* n) {
             node* l = n->left();
-            l->set_left(l->right());
-            if (l->right() != nullptr) {
+            n->set_left(l->right());
+            if (l->has_right()) {
                 l->right()->set_parent(n);
             }
             l->set_parent(n->parent());
-            if (n->parent() == nullptr) {
+            if (n->is_root()) {
                 root_ = l;
             }
             else if (n->is_right()) {
@@ -212,9 +213,8 @@ public:
             if (n->parent()->parent()==nullptr) return;
             while (n != root_ && n->parent()->is_red()) {
                 if (n->parent()->is_left()) {
-                    if (!n->parent()->parent()->has_right()) return;
                     node* u = n->parent()->parent()->right();
-                    if (u->is_red()) {
+                    if (u!=nullptr&&u->is_red()) {
                         n->parent()->set_black();
                         u->set_black();
                         n->parent()->parent()->set_red();
@@ -231,9 +231,8 @@ public:
                     }
                 }
                 else {
-                    if (!n->parent()->parent()->has_left()) return;
                     node* u = n->parent()->parent()->left();
-                    if (u->is_red()) {
+                    if (u!=nullptr&&u->is_red()) {
                         n->parent()->set_black();
                         u->set_black();
                         n->parent()->parent()->set_red();
@@ -329,6 +328,7 @@ public:
             newnode->set_parent(prev);
             if constexpr (std::is_void_v<V>) fix_insert(find_helper(root_, elem));
             if constexpr (!std::is_void_v<V>) fix_insert(find_helper(root_, elem.first));
+           std::cout<<"cur depth: "<<checkmaxdepth()<<std::endl;
 
         }
 
@@ -432,7 +432,7 @@ public:
         
         template <typename U = V, typename = std::enable_if_t<std::is_void_v<U>>>
         setmap insert(T elem) {
-            assert(!contains(elem)); //assume elem isnt already inserted
+            if (contains(elem)) return *this;
             if (root_==nullptr) {
                 node* newnode = new (arena_->allocate<node>(1)) node(elem);
                 newnode->set_black();
@@ -440,6 +440,7 @@ public:
             }
             node* newnode = insert_helper(root_, elem);
             fix_insert(find_helper(root_, elem));
+            std::cout<<"cur depth: "<<checkmaxdepth()<<std::endl;
             return setmap(arena_,newnode,size_+1);
         }
 
@@ -484,6 +485,28 @@ public:
             for (auto elem = std::next(elems.begin(), 1); elem != elems.end(); ++elem)
                 newmap.insert_primitive(*elem);
             return newmap;
+        }
+
+        int depthchecker(node* n){
+            if (n==nullptr) return 0;
+            return 1+(std::max(depthchecker(n->left()),depthchecker(n->right())));
+        }
+
+        int checkmaxdepth() {
+            return depthchecker(root_);
+        }
+
+        void printer(node* n) {
+            if (n==nullptr) return;
+            std::cout<<n->val()<<(n->is_black()?"b":"r")<<std::endl<<"-> "<<
+            (n->has_left()?std::to_string(n->left()->val()):"X")<<" "<<
+            (n->has_right()?std::to_string(n->right()->val()):"X")<<std::endl<<std::endl;
+            printer(n->left());
+            printer(n->right());
+        }
+
+        void printtree() {
+            printer(root_);
         }
 
     };

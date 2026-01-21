@@ -403,7 +403,8 @@ TEST_CASE("map string/int") {
 }
 
 TEST_CASE("map vector?"){
-    auto m1=setmaps<int,std::vector<int>>({1, {1,2,3,4,5}}).get();
+    // auto ms=setmaps<int,std::vector<int>>({1, {1,2,3,4,5}});
+    // auto m1 = ms.get();
     // auto m2 = m1.insert(1, {1,2,3,4,5});
     // auto m3 = m2.insert(2,{6,7,8,9});
     // CHECK(m3[0][0]==1);
@@ -416,4 +417,11 @@ TEST_CASE("map vector?"){
     // CHECK(m3[1][2]==8);
     // CHECK(m3[1][3]==9);
     // CHECK(m3.size()==2);
+}
+
+TEST_CASE("max depth of sets") {
+    auto ms = setmaps<int>(1);
+    auto m1=ms.get();
+    auto m2=m1.insert({1,2,3,4,5,6,7,8,9,10});
+    m2.printtree();
 }
