@@ -167,6 +167,8 @@ public:
             value_type val_;
         };
 
+        //red/black balancing stuff -------------------------------------------
+
         void left_rotate(node* n) {
             node* r = n->right();
             n->set_right(r->left());
@@ -207,7 +209,7 @@ public:
             n->set_parent(l);
         }
 
-        void fix_insert(node* n) {
+        void fix_insert(node* n) { //breaks everything
             if (n==nullptr) return;
             if (n->parent()==nullptr) return;
             if (n->parent()->parent()==nullptr) return;
@@ -251,6 +253,8 @@ public:
             }
             root_->set_black();
         }
+
+        //normal class stuff ----------------------------------------------
 
         node* root_;
 
@@ -431,24 +435,26 @@ public:
         //set specific functions------------------------------------------
         
         template <typename U = V, typename = std::enable_if_t<std::is_void_v<U>>>
-        setmap insert(T elem) {
-            if (contains(elem)) return *this;
+        setmap* insert(T elem) {
+            if (contains(elem)) return this;
             if (root_==nullptr) {
                 node* newnode = new (arena_->allocate<node>(1)) node(elem);
                 newnode->set_black();
-                return setmap(arena_, newnode, 1);
+                setmap* newset = new (arena_->allocate<setmap>(1)) setmap(arena_, newnode, 1);
+                return newset;
             }
             node* newnode = insert_helper(root_, elem);
-            fix_insert(find_helper(root_, elem));
-            std::cout<<"cur depth: "<<checkmaxdepth()<<std::endl;
-            return setmap(arena_,newnode,size_+1);
+            setmap* newset = new (arena_->allocate<setmap>(1)) setmap(arena_,newnode,size_+1);
+            newset->fix_insert(newset->find_helper(root_, elem));
+            std::cout<<"cur depth: "<<newset->checkmaxdepth()<<std::endl;
+            return newset;
         }
 
         template <typename U = V, typename = std::enable_if_t<std::is_void_v<U>>>
-        setmap insert(std::initializer_list<T> elems) {
-            setmap newset = insert(*elems.begin());
+        setmap* insert(std::initializer_list<T> elems) {
+            setmap* newset = insert(*elems.begin());
             for (auto elem = std::next(elems.begin(), 1); elem != elems.end(); ++elem)
-                newset.insert_primitive(*elem);
+                newset->insert_primitive(*elem);
             return newset;
         }
 
@@ -467,23 +473,25 @@ public:
         }
     
         template <typename U = V, typename = std::enable_if_t<!std::is_void_v<U>>>
-        setmap insert(T key, U value) {
+        setmap* insert(T key, U value) {
             if (root_==nullptr) {
                 node* newnode = new (arena_->allocate<node>(1)) node({key,value});
-                return setmap(arena_, newnode, 1);
+                setmap* newmap = new (arena_->allocate<setmap>(1)) setmap(arena_, newnode, 1);
+                return newmap;
             }
             size_t newsize = size_+!contains(key); //cursed
             node* newnode = insert_helper(root_, {key,value});
-            fix_insert(find_helper(root_, key));
-            return setmap(arena_,newnode,newsize);
+            setmap* newmap =new (arena_->allocate<setmap>(1)) setmap(arena_,newnode,newsize);
+            newmap->fix_insert(newmap->find_helper(root_, key));
+            return newmap;
         }
 
         template <typename U = V, typename = std::enable_if_t<!std::is_void_v<U>>>
-        setmap insert(std::initializer_list<pair<T,V>> elems) {
+        setmap* insert(std::initializer_list<pair<T,V>> elems) {
             auto bg = *elems.begin();
-            setmap newmap = insert(bg.first,bg.second);
+            setmap* newmap = insert(bg.first,bg.second);
             for (auto elem = std::next(elems.begin(), 1); elem != elems.end(); ++elem)
-                newmap.insert_primitive(*elem);
+                newmap->insert_primitive(*elem);
             return newmap;
         }
 
