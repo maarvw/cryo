@@ -46,60 +46,18 @@ public:
         class node {
         public:
             node(value_type val) :
-                is_red_(true), left_(nullptr), right_(nullptr), parent_(nullptr) {
-                    if constexpr (std::is_void_v<V>) { //set
-                        if (!std::is_trivially_default_constructible_v<T>)
-                            new (&val_) T();
-                    }
-                    else { //map
-                        if (!std::is_trivially_default_constructible_v<T>)
-                            new (&val_.first) T();
-                        if (!std::is_trivially_default_constructible_v<V>)
-                            new (&val_.second) V();
-                    }
-                    val_=val;
-                    // if (!std::is_trivially_destructible_v<value_type>) val.~value_type();
-                }
+                is_red_(true), val_(val) {
+            }
 
             node(node* l, node* r, value_type val) :
-                is_red_(true), left_(l), right_(r), parent_(nullptr) {
-                    if constexpr (std::is_void_v<V>) { //set
-                        if (!std::is_trivially_default_constructible_v<T>)
-                            new (&val_) T();
-                    }
-                    else { //map
-                        if (!std::is_trivially_default_constructible_v<T>)
-                            new (&val_.first) T();
-                        if (!std::is_trivially_default_constructible_v<V>)
-                            new (&val_.second) V();
-                    }
-                    val_=val;
-                    // if (!std::is_trivially_destructible_v<value_type>) val.~value_type();
+                is_red_(true), left_(l), right_(r), val_(val) {
                 }
 
             node(node* l, node* r, node* p, value_type val) :
-                is_red_(true), left_(l), right_(r), parent_(p) {
-                    if constexpr (std::is_void_v<V>) { //set
-                        if (!std::is_trivially_default_constructible_v<T>)
-                            new (&val_) T();
-                    }
-                    else { //map
-                        if (!std::is_trivially_default_constructible_v<T>)
-                            new (&val_.first) T();
-                        if (!std::is_trivially_default_constructible_v<V>)
-                            new (&val_.second) V();
-                    }
-                    val_=val;
-                    // if (!std::is_trivially_destructible_v<value_type>) val.~value_type();
-                }
+                is_red_(true), left_(l), right_(r), parent_(p), val_(val) {
+            }
 
             ~node() {
-                if (std::is_trivially_destructible_v<T>&&std::is_trivially_destructible_v<V>) return;
-               // no val_.~T(); necessary, is done automatically at the end, i guess because value not pointer?
-               if constexpr (!std::is_void_v<V>) {
-                    //if (!std::is_trivially_destructible_v<T>) val_.first.~T();
-                    //if (!std::is_trivially_destructible_v<V>) val_.second.~V();
-               }
                if (has_left())  left_->~node();
                if (has_right()) right_->~node();
             }
@@ -170,9 +128,9 @@ public:
         private:
 
             bool is_red_;
-            node* left_;
-            node* right_;
-            node* parent_;
+            node* left_ = nullptr;
+            node* right_ = nullptr;
+            node* parent_ = nullptr;
             value_type val_;
         };
 
@@ -349,8 +307,7 @@ public:
     public:
 
         ~setmap() {
-            if (root_==nullptr) return;
-            root_->~node();
+            if (root_) root_->~node();
         }
 
         setmap(arena* arena) :
