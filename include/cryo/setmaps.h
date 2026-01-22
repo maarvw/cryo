@@ -56,6 +56,7 @@ public:
                             new (&val_.second) V();
                     }
                     val_=val;
+                    // if (!std::is_trivially_destructible_v<value_type>) val.~value_type();
                 }     
 
             node(node* l, node* r, value_type val) :
@@ -71,6 +72,7 @@ public:
                             new (&val_.second) V();
                     }
                     val_=val;
+                    // if (!std::is_trivially_destructible_v<value_type>) val.~value_type();
                 }
 
             node(node* l, node* r, node* p, value_type val) :
@@ -86,11 +88,16 @@ public:
                             new (&val_.second) V();
                     }
                     val_=val;
+                    // if (!std::is_trivially_destructible_v<value_type>) val.~value_type();
                 }
 
             ~node() { 
                 if (std::is_trivially_destructible_v<T>&&std::is_trivially_destructible_v<V>) return;
                // no val_.~T(); necessary, is done automatically at the end, i guess because value not pointer?
+               if constexpr (!std::is_void_v<V>) {
+                    //if (!std::is_trivially_destructible_v<T>) val_.first.~T();
+                    //if (!std::is_trivially_destructible_v<V>) val_.second.~V();
+               }
                if (has_left())  left_->~node(); 
                if (has_right()) right_->~node(); 
             }
@@ -210,6 +217,7 @@ public:
         }
 
         void fix_insert(node* n) { //breaks everything
+            return;
             if (n==nullptr) return;
             if (n->parent()==nullptr) return;
             if (n->parent()->parent()==nullptr) return;
@@ -431,6 +439,14 @@ public:
           returns end() if elem isn't in the set.*/
         iterator find(T elem) { return iterator(this, find_helper(root_, elem)); }
 
+        bool operator==(setmap other) {
+            if (size()!=other.size()) return false;
+            for (auto elem : other) if (!contains(elem)) return false;
+            return true;
+        }
+
+        bool operator!=(setmap other) { return !this==other; }
+
 
         //set specific functions------------------------------------------
         
@@ -530,8 +546,8 @@ public:
     setmaps(std::initializer_list<value_type> elems) :
         initial_setmap(elems, &arena_) {}
 
-    setmap get() {
-        return initial_setmap;
+    setmap* get() {
+        return &initial_setmap;
     }
 
 
