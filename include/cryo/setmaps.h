@@ -1,3 +1,5 @@
+#pragma once
+
 #include "../../external/fe/include/fe/arena.h"
 #include <cstddef>
 #include <initializer_list>
@@ -12,7 +14,7 @@ namespace cryo {
 
 template<typename T, typename V = void>
 class setmaps {
-    
+
     //custom pair so we can compare T to pair<T,V>
     template<typename A, typename B>
     struct pair {
@@ -23,13 +25,13 @@ class setmaps {
         bool operator>(A a) { return first>a;}
         bool operator<=(A a) { return first<=a;}
         bool operator>=(A a) { return first>=a;}
-    
+
         bool operator==(pair<A,B> o) { return first==o.first; }
         bool operator<(pair<A,B> o) { return first<o.first;}
         bool operator>(pair<A,B> o) { return first>o.first;}
         bool operator<=(pair<A,B> o) { return first<=o.first;}
         bool operator>=(pair<A,B> o) { return first>=o.first;}
-    
+
     };
     fe::Arena arena_;
     using value_type = std::conditional_t<std::is_void_v<V>, T, pair<T, V>>;
@@ -45,7 +47,7 @@ public:
         public:
             node(value_type val) :
                 is_red_(true), left_(nullptr), right_(nullptr), parent_(nullptr) {
-                    if constexpr (std::is_void_v<V>) { //set 
+                    if constexpr (std::is_void_v<V>) { //set
                         if (!std::is_trivially_default_constructible_v<T>)
                             new (&val_) T();
                     }
@@ -57,7 +59,7 @@ public:
                     }
                     val_=val;
                     // if (!std::is_trivially_destructible_v<value_type>) val.~value_type();
-                }     
+                }
 
             node(node* l, node* r, value_type val) :
                 is_red_(true), left_(l), right_(r), parent_(nullptr) {
@@ -91,15 +93,15 @@ public:
                     // if (!std::is_trivially_destructible_v<value_type>) val.~value_type();
                 }
 
-            ~node() { 
+            ~node() {
                 if (std::is_trivially_destructible_v<T>&&std::is_trivially_destructible_v<V>) return;
                // no val_.~T(); necessary, is done automatically at the end, i guess because value not pointer?
                if constexpr (!std::is_void_v<V>) {
                     //if (!std::is_trivially_destructible_v<T>) val_.first.~T();
                     //if (!std::is_trivially_destructible_v<V>) val_.second.~V();
                }
-               if (has_left())  left_->~node(); 
-               if (has_right()) right_->~node(); 
+               if (has_left())  left_->~node();
+               if (has_right()) right_->~node();
             }
 
             value_type& val() { return val_; }
@@ -164,7 +166,7 @@ public:
                 cur=cur->parent();
                 return cur;
             }
-            
+
         private:
 
             bool is_red_;
@@ -268,7 +270,7 @@ public:
 
         arena* arena_;
 
-        size_t size_;      
+        size_t size_;
 
         setmap() = delete;
 
@@ -286,7 +288,7 @@ public:
                 newnode->set_left(n->left());
                 newnode->set_right(n->right());
                 return newnode;
-            } 
+            }
 
             node* newnode;
             if (elem>n->val())  newnode = insert_helper(n->right(), elem);
@@ -295,12 +297,12 @@ public:
             node* ret;
             if (elem>n->val())  ret = new (arena_->allocate<node>(1)) node(n->left(), newnode, n->val());
             else                ret = new (arena_->allocate<node>(1)) node(newnode,n->right(), n->val());
-            
+
             newnode->set_parent(ret);
             return ret;
         }
 
-        bool contains_helper(node* n, T elem) {
+        bool contains_helper(node* n, T elem) const {
             if (n==nullptr)     return false;
             if (n->val()==elem) return true;
             if (n->val()>elem)  return contains_helper(n->left(), elem);
@@ -350,15 +352,15 @@ public:
             if (root_==nullptr) return;
             root_->~node();
         }
-        
-        setmap(arena* arena) : 
+
+        setmap(arena* arena) :
         root_(nullptr), arena_(arena), size_(0) {}
-        
-        setmap(value_type elem, arena* arena) : 
+
+        setmap(value_type elem, arena* arena) :
         root_(nullptr), arena_(arena), size_(0) {
             insert_primitive(elem);
         }
-        
+
         setmap(std::initializer_list<value_type> elems, arena* arena) :
         root_(nullptr), arena_(arena), size_(0) {
             for (T elem : elems)
@@ -370,26 +372,26 @@ public:
             using difference_type = std::ptrdiff_t;
             using value_type = setmaps::value_type;
             using iterator_category = std::bidirectional_iterator_tag;
-            
+
             setmap* setmap_;
             node* current_;
-            
+
             iterator() = default;
-            
+
             iterator(setmap* set, node* n) :
             setmap_(set), current_(n) {}
-            
+
             const value_type& operator*() const {return current_->val(); }
-            
+
             iterator& operator++() { current_=current_->next(); return *this; }
             iterator operator++(int) { iterator ret = *this; ++(*this); return ret; }
-            
+
             iterator& operator--() { current_=current_->prev(); return *this; }
             iterator operator--(int) { iterator ret = *this; --(*this); return ret; }
-            
+
             bool operator==(const iterator& other) const { return setmap_==other.setmap_ && ((current_==nullptr&&other.current_==nullptr) || (current_!=nullptr&&other.current_!=nullptr && this->current_->val() == other.current_->val())); }
             bool operator!=(const iterator& other) const { return !(*this==other); }
-            
+
             bool operator<(const iterator& other) const { return this->current_->val()<other->current_->val(); };
             bool operator>(const iterator& other) const { return this->current_->val()>other->current_->val(); };
             bool operator<=(const iterator& other) const { return this->current_->val()<=other->current_->val(); };
@@ -432,24 +434,24 @@ public:
         reverse_iterator rend() { return reverse_iterator(this, nullptr); }
 
         size_t size() const { return size_; }
-    
-        bool contains(T elem) { return contains_helper(root_, elem); }
-        
+
+        bool contains(T elem) const { return contains_helper(root_, elem); }
+
         /*returns an iterator to the node containing elem.
           returns end() if elem isn't in the set.*/
         iterator find(T elem) { return iterator(this, find_helper(root_, elem)); }
 
-        bool operator==(setmap other) {
+        bool operator==(setmap other) const {
             if (size()!=other.size()) return false;
             for (auto elem : other) if (!contains(elem)) return false;
             return true;
         }
 
-        bool operator!=(setmap other) { return !this==other; }
+        bool operator!=(setmap other) const { return !(*this==other); }
 
 
         //set specific functions------------------------------------------
-        
+
         template <typename U = V, typename = std::enable_if_t<std::is_void_v<U>>>
         setmap* insert(T elem) {
             if (contains(elem)) return this;
@@ -478,7 +480,7 @@ public:
         bool contains(value_type elem) {
             return contains_helper(root_, elem.first);
         }
-        
+
         //map specific functions------------------------------------------
 
         template<typename U = V>
@@ -487,7 +489,7 @@ public:
             if (kek==nullptr) throw std::runtime_error("key does not exist here");
             return kek->val().second;
         }
-    
+
         template <typename U = V, typename = std::enable_if_t<!std::is_void_v<U>>>
         setmap* insert(T key, U value) {
             if (root_==nullptr) {
@@ -539,7 +541,7 @@ public:
 
     setmaps() :
         initial_setmap(setmap(&arena_)) {}
-    
+
     setmaps(value_type elem) :
         initial_setmap(setmap(elem, &arena_)) {}
 

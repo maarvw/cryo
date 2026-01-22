@@ -3,10 +3,11 @@
 #include <string>
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 
-#include<doctest/doctest.h>
-#include<cryo/setmaps.h>
-#include"cryo/vectors.h"
-#include<iostream>
+#include <doctest/doctest.h>
+#include <cryo/setmaps.h>
+#include "cryo/vectors.h"
+#include <iostream>
+
 using std::cout;
 using std::endl;
 using std::string;
@@ -254,7 +255,7 @@ TEST_CASE("sets long strings") {
     auto t1 = *meister.get();
     auto t2 = *t1.insert("looooooooooooooooooooooooooooong string");
     CHECK(t2.size()==1);
-    CHECK(t2.contains("looooooooooooooooooooooooooooong string"));  
+    CHECK(t2.contains("looooooooooooooooooooooooooooong string"));
 }
 
 TEST_CASE("sets adding stuff") {
@@ -283,7 +284,7 @@ TEST_CASE("sets adding stuff") {
 TEST_CASE("sets iterators") {
     auto meister = setmaps<int>({6,3,8,35,1,9});
     std::vector<int> check = {1,3,6,8,9,35};
-    auto t1 = *meister.get(); 
+    auto t1 = *meister.get();
     auto it = t1.begin();
     CHECK(*it==check[0]);
     for (int i=1;i<=5;i++) {
@@ -297,14 +298,14 @@ TEST_CASE("sets iterators") {
     int i=0;
     for (auto i1 = t1.begin(); i1!=t1.end(); i1++){
         CHECK(*i1==check[i]);
-        i++;        
+        i++;
     }
     CHECK(i==t1.size());
 
     i=0;
     for (int v : t1) {
        CHECK(v==check[i]);
-        i++;         
+        i++;
     }
     CHECK(i==t1.size());
 }
@@ -312,7 +313,7 @@ TEST_CASE("sets iterators") {
 TEST_CASE("sets reverse iterator") {
     auto meister = setmaps<int>({6,3,8,35,1,9});
     std::vector<int> check = {35,9,8,6,3,1};
-    auto t1 = *meister.get(); 
+    auto t1 = *meister.get();
     auto it = t1.rbegin();
     CHECK(*it==check[0]);
     for (int i=1;i<=5;i++) {
@@ -326,7 +327,7 @@ TEST_CASE("sets reverse iterator") {
     int i=0;
     for (auto i1 = t1.rbegin(); i1!=t1.rend(); i1++){
         CHECK(*i1==check[i]);
-        i++;        
+        i++;
     }
     CHECK(i==t1.size());
 }
