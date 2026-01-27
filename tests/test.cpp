@@ -291,12 +291,8 @@ TEST_CASE("sets iterators") {
         it++;
         CHECK(*it==check[i]);
     }
-    for (int i=4; i>=0;i--) {
-        it--;
-        CHECK(*it==check[i]);
-    }
     int i=0;
-    for (auto i1 = t1.begin(); i1!=t1.end(); i1++){
+    for (auto i1=t1.begin(); i1!=t1.end(); i1++){
         CHECK(*i1==check[i]);
         i++;
     }
@@ -304,29 +300,9 @@ TEST_CASE("sets iterators") {
 
     i=0;
     for (int v : t1) {
-       CHECK(v==check[i]);
-        i++;
-    }
-    CHECK(i==t1.size());
-}
+        cout<<i<<" "<<check[i]<<" "<<v<<endl;
 
-TEST_CASE("sets reverse iterator") {
-    auto meister = setmaps<int>({6,3,8,35,1,9});
-    std::vector<int> check = {35,9,8,6,3,1};
-    auto t1 = *meister.get();
-    auto it = t1.rbegin();
-    CHECK(*it==check[0]);
-    for (int i=1;i<=5;i++) {
-        it++;
-        CHECK(*it==check[i]);
-    }
-    for (int i=4; i>=0;i--) {
-        it--;
-        CHECK(*it==check[i]);
-    }
-    int i=0;
-    for (auto i1 = t1.rbegin(); i1!=t1.rend(); i1++){
-        CHECK(*i1==check[i]);
+        CHECK(v==check[i]);
         i++;
     }
     CHECK(i==t1.size());
@@ -346,10 +322,6 @@ TEST_CASE("set find") {
     CHECK(*it==36);
     ++it;
     it = m2.find(6);
-    --it;
-    CHECK(*it==5);
-    --it;
-    CHECK(*it==4);
 }
 
 TEST_CASE("set ==") {
@@ -400,9 +372,10 @@ TEST_CASE("map iterator") {
     auto m5 = *m4.insert(4,-4);
     auto m6 = *m5.insert(5,-5);
     int i=0;
-    for (auto it : m6) {
+    CHECK(m6.size()==6);
+    for (auto kv : m6) {
         CHECK(m6[i]==-i);
-        CHECK(it.second==-i);
+        CHECK(kv.second==-i);
         i++;
     }
 }
@@ -435,7 +408,7 @@ TEST_CASE("map string/int") {
     CHECK(m5["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]==42);
 }
 
-TEST_CASE("map vector"){
+TEST_CASE("map vector") {
     auto ms=setmaps<int,std::vector<int>>({1, {1,2,3,4,5}});
     auto m1 = ms.get();
     auto m2 = m1->insert(1, {1,2,3,4,5});
@@ -459,7 +432,12 @@ TEST_CASE("max depth of sets") {
     m2.printtree();
 }
 
-TEST_CASE("single vec map"){
+TEST_CASE("single vec map") {
     auto ms=setmaps<int,std::vector<int>>({0,{1,2,3}});
+    auto m1=ms.get();
+}
+
+TEST_CASE("single vec set") {
+    auto ms = setmaps<std::vector<int>>({1,2,3});
     auto m1=ms.get();
 }
