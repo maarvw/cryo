@@ -313,6 +313,7 @@ TEST_CASE("set find") {
     auto m1=*ms.get();
     auto m2=*m1.insert({7,2,6,14,36,85,83,4,1,0});
     auto it = m2.find(6);
+    m2.printtree();
     CHECK(*it==6);
     ++it;
     CHECK(*it==7);
@@ -320,8 +321,6 @@ TEST_CASE("set find") {
     CHECK(*it==14);
     ++it;
     CHECK(*it==36);
-    ++it;
-    it = m2.find(6);
 }
 
 TEST_CASE("set ==") {

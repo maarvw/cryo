@@ -5,6 +5,7 @@
 #include <initializer_list>
 #include <iostream> //löschen wenn kein debug mehr nötig
 #include <iterator>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -55,10 +56,6 @@ public:
                     recalculate_balance();
                 }
 
-            // node(node* l, node* r, node* p, value_type val) :
-            //     left_(l), right_(r), parent_(p), val_(val) {
-            // }
-
             ~node() {
                if (has_left())  left_->~node();
                if (has_right()) right_->~node();
@@ -75,6 +72,7 @@ public:
 
             void set_left(node* n)  { left_  = n; recalculate_balance(); }
             void set_right(node* n) { right_ = n; recalculate_balance(); }
+            void set_val(value_type v) { val_ = v; }
 
             void recalculate_balance() {
                 int rh = (right()!=nullptr?right()->height():0);
@@ -82,17 +80,8 @@ public:
                 height_=1+std::max(lh,rh);
                 balance_=rh-lh;
             }
-            //void set_parent(node* n) { parent_ = n; }
-
             bool has_left() { return left_!=nullptr; }
             bool has_right() { return right_!=nullptr; }
-            //bool is_root() { return parent_==nullptr; }
-
-            // bool is_red() { return is_red_; }
-            // bool is_black() { return !is_red(); }
-
-            // void set_red() { is_red_=true; }
-            // void set_black() { is_red_=false; }
 
             node* leftmost() {
                 node* n = this;
@@ -107,19 +96,13 @@ public:
 
         private:
 
-            //bool is_red_;
             node* left_ = nullptr;
             node* right_ = nullptr;
-            //node* parent_ = nullptr;
             value_type val_;
             int height_ = 1;
             int balance_ = 0;
         };
 
-        // node* node_copy(node* n) {
-        //     node* newnode = new (arena_->allocate<node>(1)) node(n->left(),n->right(),n->parent(),n->val());
-        //     return newnode;
-        // }
 
         //balancing stuff -------------------------------------------
 
@@ -180,17 +163,8 @@ public:
                return new (arena_->allocate<node>(1)) node(n->left(), n->right(), elem);
             }
 
-            // node* newnode;
-            // if (elem>n->val())  newnode = insert_helper(n->right(), elem);
-            // else                newnode = insert_helper(n->left(), elem);
-
             if (elem>n->val())    return balance_node(new (arena_->allocate<node>(1)) node(n->left(), insert_helper(n->right(), elem), n->val()));
             else                  return balance_node(new (arena_->allocate<node>(1)) node(insert_helper(n->left(), elem), n->right(), n->val()));
-
-            // if (elem>n->val())    return balance_node(new (arena_->allocate<node>(1)) node(n->left(), insert_helper(n->right(), elem), n->val()));
-            // else                  return balance_node(new (arena_->allocate<node>(1)) node(insert_helper(n->left(), elem),n->right(), n->val()));
-
-            //return ret;
         }
 
         bool contains_helper(node* n, T elem) const {
@@ -216,7 +190,6 @@ public:
             size_++;
             if (root_==nullptr) {
                 root_ = new (arena_->allocate<node>(1)) node(elem);
-                //root_->set_black();
                 return;
             }
             node* cur = root_;
@@ -230,11 +203,58 @@ public:
             node* newnode = new (arena_->allocate<node>(1)) node(elem);
             if (prev->val()<elem) prev->set_right(newnode);
             else prev->set_left(newnode);
-            // newnode->set_parent(prev);
-            // if constexpr (std::is_void_v<V>) fix_insert(find_helper(root_, elem));
-            // if constexpr (!std::is_void_v<V>) fix_insert(find_helper(root_, elem.first));
            std::cout<<"(set_prim) cur depth: "<<checkmaxdepth()<<" "<<root_->height()<<std::endl;
+        }
 
+        node* change_or_copy(node* n, std::set<node*>* changed) {
+            if (changed->contains(n)) return n;
+            return new (arena_->allocate<node>(1)) node(n->left(), n->right(), n->val());
+        }
+
+        node* insert_single(node* n, value_type val, std::set<node*>* changed) {
+            node* newnode;
+            if (n==nullptr) {
+                size_++;
+                newnode = new (arena_->allocate<node>(1)) node(val);
+                changed->insert(newnode);
+                return newnode;
+            } 
+
+            if (n->val()==val) {
+                size_--;
+                if (is_set) throw std::runtime_error("set already contains element");
+                //map case: insert new value for existing key in the middle of the tree
+                newnode = change_or_copy(n, changed);
+                newnode->set_val(val);
+                //newnode = new (arena_->allocate<node>(1)) node(n->left(), n->right(), val);
+                changed->insert(newnode);
+                return newnode;
+            }
+            
+            if (val>n->val()) {
+                newnode = change_or_copy(n, changed);
+                newnode->set_left(n->left());
+                newnode->set_right(insert_single(n->right(), val, changed));
+                //newnode = new (arena_->allocate<node>(1)) node(n->left(), insert_single(n->right(), val), n->val(),changed);            
+            }
+            else {
+                newnode = change_or_copy(n, changed);
+                newnode->set_left(insert_single(n->left(), val, changed));
+                newnode->set_right(n->right());
+                //newnode = new (arena_->allocate<node>(1)) node(insert_single(n->left(), val), n->right(), n->val(),changed);
+            } 
+            
+            changed->insert(newnode);
+            return balance_node(newnode);            
+        }
+
+        void insert_list(std::initializer_list<value_type> vals) {
+            std::set<node*> changed = std::set<node*>(); //cursed hier auch std::sets zu nutzen aber naja
+            
+            for (auto v : vals) {
+                if (is_set&&contains(v)) continue;
+                root_=insert_single(root_, v, &changed);
+            }
         }
 
     public:
@@ -253,8 +273,7 @@ public:
 
         setmap(std::initializer_list<value_type> elems, arena* arena) :
         root_(nullptr), arena_(arena), size_(0) {
-            for (T elem : elems)
-                insert_primitive(elem);
+            insert_list(elems);
         }
 
         struct iterator {
@@ -301,9 +320,11 @@ public:
                     if (!set->contains(elem)) throw std::runtime_error("bad node");
                     if (current_->val()==elem) return;
                     while (current_->val()!=elem) {
-                        stack_.push_back(current_);
                         if (current_->val()<elem) current_=current_->right();
-                        else if (current_->val()>elem) current_=current_->left();
+                        else if (current_->val()>elem) {
+                            stack_.push_back(current_);
+                            current_=current_->left();
+                        }
                         if (current_==nullptr) throw std::runtime_error("bad node");
                     }
                 }
@@ -363,22 +384,23 @@ public:
             if (contains(elem)) return this;
             if (root_==nullptr) {
                 node* newnode = new (arena_->allocate<node>(1)) node(elem);
-                //newnode->set_black();
                 setmap* newset = new (arena_->allocate<setmap>(1)) setmap(arena_, newnode, 1);
                 return newset;
             }
             node* newnode = insert_helper(root_, elem);
             setmap* newset = new (arena_->allocate<setmap>(1)) setmap(arena_,newnode,size_+1);
-           // newset->fix_insert(newset->find_helper(root_, elem));
             std::cout<<"cur depth: "<<newset->checkmaxdepth()<<" "<<newnode->height()<<std::endl;
             return newset;
         }
 
         template <typename U = V, typename = std::enable_if_t<std::is_void_v<U>>>
         setmap* insert(std::initializer_list<T> elems) {
-            setmap* newset = insert(*elems.begin());
-            for (auto elem = std::next(elems.begin(), 1); elem != elems.end(); ++elem)
-                newset->insert_primitive(*elem);
+            //contains_all check?
+            setmap* newset = new (arena_->allocate<setmap>(1)) setmap(arena_,root_,size_);
+            newset->insert_list(elems);
+            // setmap* newset = insert(*elems.begin());
+            // for (auto elem = std::next(elems.begin(), 1); elem != elems.end(); ++elem)
+            //     newset->insert_primitive(*elem);
             return newset;
         }
 
@@ -406,16 +428,16 @@ public:
             size_t newsize = size_+!contains(key); //cursed
             node* newnode = insert_helper(root_, {key,value});
             setmap* newmap =new (arena_->allocate<setmap>(1)) setmap(arena_,newnode,newsize);
-            //newmap->fix_insert(newmap->find_helper(root_, key));
             return newmap;
         }
 
         template <typename U = V, typename = std::enable_if_t<!std::is_void_v<U>>>
         setmap* insert(std::initializer_list<pair<T,V>> elems) {
-            auto bg = *elems.begin();
-            setmap* newmap = insert(bg.first,bg.second);
-            for (auto elem = std::next(elems.begin(), 1); elem != elems.end(); ++elem)
-                newmap->insert_primitive(*elem);
+            setmap* newmap = new (arena_->allocate<setmap>(1)) setmap(arena_,root_,size_);
+            newmap->insert_list(elems);
+            // setmap* newmap = insert(bg.first,bg.second);
+            // for (auto elem = std::next(elems.begin(), 1); elem != elems.end(); ++elem)
+            //     newmap->insert_primitive(*elem);
             return newmap;
         }
 
