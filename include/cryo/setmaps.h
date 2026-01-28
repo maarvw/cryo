@@ -47,16 +47,17 @@ public:
         class node {
         public:
             node(value_type val) :
-                is_red_(true), val_(val) {
+               val_(val) {
             }
 
             node(node* l, node* r, value_type val) :
-                is_red_(true), left_(l), right_(r), val_(val) {
+                left_(l), right_(r), val_(val) {
+                    recalculate_balance();
                 }
 
-            node(node* l, node* r, node* p, value_type val) :
-                is_red_(true), left_(l), right_(r), parent_(p), val_(val) {
-            }
+            // node(node* l, node* r, node* p, value_type val) :
+            //     left_(l), right_(r), parent_(p), val_(val) {
+            // }
 
             ~node() {
                if (has_left())  left_->~node();
@@ -68,24 +69,30 @@ public:
 
             node* left() const { return left_ ; }
             node* right() const { return right_; }
-            //node* parent() const { return parent_; }
 
-            void set_left(node* n) { left_ = n; }
-            void set_right(node* n) { right_ = n; }
-            void set_parent(node* n) { parent_ = n; }
+            int height() const { return height_; }
+            int balance() const { return balance_; }
+
+            void set_left(node* n)  { left_  = n; recalculate_balance(); }
+            void set_right(node* n) { right_ = n; recalculate_balance(); }
+
+            void recalculate_balance() {
+                int rh = (right()!=nullptr?right()->height():0);
+                int lh = (left()!=nullptr?left()->height():0);
+                height_=1+std::max(lh,rh);
+                balance_=rh-lh;
+            }
+            //void set_parent(node* n) { parent_ = n; }
 
             bool has_left() { return left_!=nullptr; }
             bool has_right() { return right_!=nullptr; }
-            bool is_root() { return parent_==nullptr; }
+            //bool is_root() { return parent_==nullptr; }
 
-            //bool is_right() { return !is_root() && parent()->right()==this; }
-            //bool is_left() { return !is_root() && parent()->left()==this; }
+            // bool is_red() { return is_red_; }
+            // bool is_black() { return !is_red(); }
 
-            bool is_red() { return is_red_; }
-            bool is_black() { return !is_red(); }
-
-            void set_red() { is_red_=true; }
-            void set_black() { is_red_=false; }
+            // void set_red() { is_red_=true; }
+            // void set_black() { is_red_=false; }
 
             node* leftmost() {
                 node* n = this;
@@ -98,139 +105,55 @@ public:
                 return n;
             }
 
-            // node* next() {
-            //     node* cur = this;
-            //     if (cur->has_right()) {
-            //         cur = cur->right();
-            //         cur = cur->leftmost();
-            //         return cur;
-            //     }
-            //     if (is_root()) return nullptr;
-            //     if (cur->is_left()) return cur->parent();
-            //     while (cur->is_right()) cur=cur->parent();
-            //     cur=cur->parent();
-            //     return cur;
-            // }
-
-            // node* prev() {
-            //     node* cur = this;
-            //     if (cur->has_left()) {
-            //         cur = cur->left();
-            //         cur = cur->rightmost();
-            //         return cur;
-            //     }
-            //     if (is_root()) return nullptr;
-            //     if (cur->is_right()) return cur->parent();
-            //     while (cur->is_left()) cur=cur->parent();
-            //     cur=cur->parent();
-            //     return cur;
-            // }
-
         private:
 
-            bool is_red_;
+            //bool is_red_;
             node* left_ = nullptr;
             node* right_ = nullptr;
-            node* parent_ = nullptr;
+            //node* parent_ = nullptr;
             value_type val_;
+            int height_ = 1;
+            int balance_ = 0;
         };
 
-        node* node_copy(node* n) {
-            node* newnode = new (arena_->allocate<node>(1)) node(n->left(),n->right(),n->parent(),n->val());
-            return newnode;
+        // node* node_copy(node* n) {
+        //     node* newnode = new (arena_->allocate<node>(1)) node(n->left(),n->right(),n->parent(),n->val());
+        //     return newnode;
+        // }
+
+        //balancing stuff -------------------------------------------
+
+        /* left and right rotate should ONLY be called during the insertion process for nodes where the 
+          right/left nodes respectively should just have been created and are not in use by any previous
+          states of the tree so as not to break the traversal for those other trees */
+
+        node* left_rotate(node* n) {
+            node* r = n->right();  //
+            node* rl = r->left();
+            n->set_right(rl); n->recalculate_balance();
+            r->set_left(n); r->recalculate_balance();
+            return r;
         }
 
-        //red/black balancing stuff -------------------------------------------
+        node* right_rotate(node* n) {
+            node* l = n->left();  //
+            node* lr = l->right();
+            n->set_left(lr); n->recalculate_balance();
+            l->set_right(n); l->recalculate_balance();
+            return l;
+        }
 
-        // void left_rotate(node* n) {
-        //     node* r = n->right();  //n, p, r, rl müssen kopiert werden
-        //     node* p = n->parent();
-        //     node* rl = r->left();
-        //     n->set_right(rl);
-        //     if (r->has_left()) {
-        //         rl->set_parent(n);
-        //     }
-        //     r->set_parent(p);
-        //     if (n->is_root()) {
-        //         root_ = r;
-        //     }
-        //     else if (n->is_left()) {
-        //         p->set_left(r);
-        //     }
-        //     else {
-        //         p->set_right(r);
-        //     }
-        //     r->set_left(n);
-        //     n->set_parent(r);
-        // }
+        node* balance_node(node* n) {
+            int bal = n->balance();
+            if (bal<-1) {
+                return right_rotate(n);
+            }
+            else if (bal>1) {
+                return left_rotate(n);
+            }
+            return n;
+        }
 
-        // void rightRotate(node* n) {
-        //     node* l = n->left();  //n, p, l, lr müssen kopiert werden
-        //     node* p = n->parent();
-        //     node* lr = l->right();
-        //     n->set_left(lr);
-        //     if (l->has_right()) {
-        //         lr->set_parent(n);
-        //     }
-        //     l->set_parent(p);
-        //     if (n->is_root()) {
-        //         root_ = l;
-        //     }
-        //     else if (n->is_right()) {
-        //         p->set_right(l);
-        //     }
-        //     else {
-        //         p->set_left(l);
-        //     }
-        //     l->set_right(n);
-        //     n->set_parent(l);
-        // }
-
-        // void fix_insert(node* n) { //breaks everything
-        //     return;
-        //     if (n==nullptr) return;
-        //     if (n->parent()==nullptr) return;
-        //     if (n->parent()->parent()==nullptr) return;
-        //     while (n != root_ && n->parent()->is_red()) {
-        //         if (n->parent()->is_left()) {
-        //             node* u = n->parent()->parent()->right();
-        //             if (u!=nullptr&&u->is_red()) {
-        //                 n->parent()->set_black();
-        //                 u->set_black();
-        //                 n->parent()->parent()->set_red();
-        //                 n = n->parent()->parent();
-        //             }
-        //             else {
-        //                 if (n->is_right()) {
-        //                     n = n->parent();
-        //                     left_rotate(n);
-        //                 }
-        //                 n->parent()->set_black();
-        //                 n->parent()->parent()->set_red();
-        //                 rightRotate(n->parent()->parent());
-        //             }
-        //         }
-        //         else {
-        //             node* u = n->parent()->parent()->left();
-        //             if (u!=nullptr&&u->is_red()) {
-        //                 n->parent()->set_black();
-        //                 u->set_black();
-        //                 n->parent()->parent()->set_red();
-        //                 n = n->parent()->parent();
-        //             }
-        //             else {
-        //                 if (n->is_left()) {
-        //                     n = n->parent();
-        //                     rightRotate(n);
-        //                 }
-        //                 n->parent()->set_black();
-        //                 n->parent()->parent()->set_red();
-        //                 left_rotate(n->parent()->parent());
-        //             }
-        //         }
-        //     }
-        //     root_->set_black();
-        // }
 
         //normal class stuff ----------------------------------------------
 
@@ -250,24 +173,24 @@ public:
 
         node* insert_helper(node* n, value_type elem) {
             if (n==nullptr) return new (arena_->allocate<node>(1)) node(elem);
+
             if (n->val()==elem) {
                 if (is_set) throw std::runtime_error("set already contains element");
-                node* newnode = new (arena_->allocate<node>(1)) node(elem);
-                newnode->set_left(n->left());
-                newnode->set_right(n->right());
-                return newnode;
+                //map case: insert new value for existing key in the middle of the tree
+               return new (arena_->allocate<node>(1)) node(n->left(), n->right(), elem);
             }
 
-            node* newnode;
-            if (elem>n->val())  newnode = insert_helper(n->right(), elem);
-            else                newnode = insert_helper(n->left(), elem);
+            // node* newnode;
+            // if (elem>n->val())  newnode = insert_helper(n->right(), elem);
+            // else                newnode = insert_helper(n->left(), elem);
 
-            node* ret;
-            if (elem>n->val())  ret = new (arena_->allocate<node>(1)) node(n->left(), newnode, n->val());
-            else                ret = new (arena_->allocate<node>(1)) node(newnode,n->right(), n->val());
+            if (elem>n->val())    return balance_node(new (arena_->allocate<node>(1)) node(n->left(), insert_helper(n->right(), elem), n->val()));
+            else                  return balance_node(new (arena_->allocate<node>(1)) node(insert_helper(n->left(), elem), n->right(), n->val()));
 
-            newnode->set_parent(ret);
-            return ret;
+            // if (elem>n->val())    return balance_node(new (arena_->allocate<node>(1)) node(n->left(), insert_helper(n->right(), elem), n->val()));
+            // else                  return balance_node(new (arena_->allocate<node>(1)) node(insert_helper(n->left(), elem),n->right(), n->val()));
+
+            //return ret;
         }
 
         bool contains_helper(node* n, T elem) const {
@@ -293,7 +216,7 @@ public:
             size_++;
             if (root_==nullptr) {
                 root_ = new (arena_->allocate<node>(1)) node(elem);
-                root_->set_black();
+                //root_->set_black();
                 return;
             }
             node* cur = root_;
@@ -307,10 +230,10 @@ public:
             node* newnode = new (arena_->allocate<node>(1)) node(elem);
             if (prev->val()<elem) prev->set_right(newnode);
             else prev->set_left(newnode);
-            newnode->set_parent(prev);
+            // newnode->set_parent(prev);
             // if constexpr (std::is_void_v<V>) fix_insert(find_helper(root_, elem));
             // if constexpr (!std::is_void_v<V>) fix_insert(find_helper(root_, elem.first));
-           std::cout<<"cur depth: "<<checkmaxdepth()<<std::endl;
+           std::cout<<"(set_prim) cur depth: "<<checkmaxdepth()<<" "<<root_->height()<<std::endl;
 
         }
 
@@ -440,14 +363,14 @@ public:
             if (contains(elem)) return this;
             if (root_==nullptr) {
                 node* newnode = new (arena_->allocate<node>(1)) node(elem);
-                newnode->set_black();
+                //newnode->set_black();
                 setmap* newset = new (arena_->allocate<setmap>(1)) setmap(arena_, newnode, 1);
                 return newset;
             }
             node* newnode = insert_helper(root_, elem);
             setmap* newset = new (arena_->allocate<setmap>(1)) setmap(arena_,newnode,size_+1);
            // newset->fix_insert(newset->find_helper(root_, elem));
-            std::cout<<"cur depth: "<<newset->checkmaxdepth()<<std::endl;
+            std::cout<<"cur depth: "<<newset->checkmaxdepth()<<" "<<newnode->height()<<std::endl;
             return newset;
         }
 
@@ -459,15 +382,15 @@ public:
             return newset;
         }
 
+        //map specific functions------------------------------------------
+
         template <typename U = V, typename = std::enable_if_t<!std::is_void_v<U>>>
         bool contains(value_type elem) {
             return contains_helper(root_, elem.first);
         }
 
-        //map specific functions------------------------------------------
-
-        template<typename U = V>
-        auto operator[](T key) -> std::enable_if_t<!std::is_void_v<U>, const V>{
+        template<typename U = V,  typename = std::enable_if_t<!std::is_void_v<U>>>
+        const V operator[](T key){
             auto kek = find_helper(root_, key);
             if (kek==nullptr) throw std::runtime_error("key does not exist here");
             return kek->val().second;
@@ -507,7 +430,7 @@ public:
 
         void printer(node* n) {
             if (n==nullptr) return;
-            std::cout<<n->val()<<(n->is_black()?"b":"r")<<std::endl<<"-> "<<
+            std::cout<<"val: "<<n->val()<<", height: "<<n->height()<<std::endl<<"-> "<<
             (n->has_left()?std::to_string(n->left()->val()):"X")<<" "<<
             (n->has_right()?std::to_string(n->right()->val()):"X")<<std::endl<<std::endl;
             printer(n->left());

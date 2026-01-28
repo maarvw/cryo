@@ -425,11 +425,27 @@ TEST_CASE("map vector") {
     CHECK(m3->size()==2);
 }
 
-TEST_CASE("max depth of sets") {
+TEST_CASE("max depth of sets (insert_prim)") {
     auto ms = setmaps<int>(1);
     auto m1=*ms.get();
     auto m2=*m1.insert({1,2,3,4,5,6,7,8,9,10});
     m2.printtree();
+}
+
+TEST_CASE("max depth of sets (normal insert)") {
+    auto ms = setmaps<int>();
+    auto m1=*ms.get();
+    auto m2=*m1.insert(1);
+    auto m3=*m2.insert(2);
+    auto m4=*m3.insert(3);
+    auto m5=*m4.insert(4);
+    auto m6=*m5.insert(5);
+    auto m7=*m6.insert(6);
+    auto m8=*m7.insert(7);
+    auto m9=*m8.insert(8);
+    auto m10=*m9.insert(9);
+    auto m11=*m10.insert(10);
+    m11.printtree();
 }
 
 TEST_CASE("single vec map") {
