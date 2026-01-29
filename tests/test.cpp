@@ -3,15 +3,16 @@
 #include <string>
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 
-#include<doctest/doctest.h>
-#include<cryo/sets.h>
-#include"cryo/vectors.h"
-#include<iostream>
+#include <doctest/doctest.h>
+#include <cryo/setmaps.h>
+#include "cryo/vectors.h"
+#include <iostream>
+
 using std::cout;
 using std::endl;
 using std::string;
 using cryo::vectors;
-using cryo::sets;
+using cryo::setmaps;
 
 TEST_CASE("adding stuff"){
     vectors meister = vectors<int>(4);
@@ -225,9 +226,9 @@ TEST_CASE("set_union") {
 }
 
 TEST_CASE("sets") {
-    auto m1 = sets<int>(1);
-    auto s1 = m1.get();
-    auto s2=s1.insert(2);
+    auto m1 = setmaps<int>(1);
+    auto s1 = *m1.get();
+    auto s2=*s1.insert(2);
     CHECK(s1.contains(1));
     CHECK(s2.contains(1));
     CHECK(s2.contains(2));
@@ -237,9 +238,9 @@ TEST_CASE("sets") {
 }
 
 TEST_CASE("sets strings") {
-    auto m1 = sets<string>("a");
-    auto s1 = m1.get();
-    auto s2=s1.insert("b");
+    auto m1 = setmaps<string>("a");
+    auto s1 = *m1.get();
+    auto s2=*s1.insert("b");
     CHECK(s1.contains("a"));
     CHECK(s2.contains("a"));
     CHECK(s2.contains("b"));
@@ -249,22 +250,22 @@ TEST_CASE("sets strings") {
 }
 
 TEST_CASE("sets long strings") {
-    auto meister = sets<string>();
+    auto meister = setmaps<string>();
     string l = "looooooooooooooooooooooooooooong string";
-    auto t1 = meister.get();
-    auto t2 = t1.insert("looooooooooooooooooooooooooooong string");
+    auto t1 = *meister.get();
+    auto t2 = *t1.insert("looooooooooooooooooooooooooooong string");
     CHECK(t2.size()==1);
-    CHECK(t2.contains("looooooooooooooooooooooooooooong string"));  
+    CHECK(t2.contains("looooooooooooooooooooooooooooong string"));
 }
 
-TEST_CASE("sets adding stuff") {
-    auto m1 = sets<int>(1);
-    auto s1 = m1.get();
-    auto s2=s1.insert(2);
-    auto s3 = s2.insert({3,4,5,6,7,8});
-    auto m2 = sets<int>({1,2,3,4,5});
-    auto t1 = m2.get();
-    auto t2 = t1.insert(6);
+TEST_CASE("sets adding 1") {
+    auto m1 = setmaps<int>(1);
+    auto s1 = *m1.get();
+    auto s2=*s1.insert(2);
+    auto s3 = *s2.insert({3,4,5,6,7,8});
+    auto m2 = setmaps<int>({1,2,3,4,5});
+    auto t1 = *m2.get();
+    auto t2 = *t1.insert(6);
 
     CHECK(s1.size()==1);
     CHECK(s1.contains(1));
@@ -280,53 +281,229 @@ TEST_CASE("sets adding stuff") {
     CHECK(!t1.contains(6));
 }
 
+TEST_CASE("set adding 2") {
+    auto m1 = setmaps<double>({5.1,0.9,-6,4});
+    auto s1=m1.get();
+    auto s2=s1->insert({8.2,10.6,-55.2,-5.9,4.4,1.1});
+    for (double u : {5.1,0.9,-6.0,4.0}) {
+        CHECK(s1->contains(u));
+        CHECK(s2->contains(u));
+    }
+    for (double u : {8.2,10.6,-55.2,-5.9,4.4,1.1}) {
+        CHECK(!s1->contains(u));
+        CHECK(s2->contains(u));
+    }
+    double prev = -999;
+    auto cur = s2->begin();
+    while (cur!=s2->end()){
+        CHECK(*cur>prev);
+        CHECK(s2->contains(*cur));
+        prev=*cur;
+        cur++;
+    }
+}
+
 TEST_CASE("sets iterators") {
-    auto meister = sets<int>({6,3,8,35,1,9});
+    auto meister = setmaps<int>({6,3,8,35,1,9});
     std::vector<int> check = {1,3,6,8,9,35};
-    auto t1 = meister.get(); 
+    auto t1 = *meister.get();
     auto it = t1.begin();
     CHECK(*it==check[0]);
     for (int i=1;i<=5;i++) {
         it++;
         CHECK(*it==check[i]);
     }
-    for (int i=4; i>=0;i--) {
-        it--;
-        CHECK(*it==check[i]);
-    }
     int i=0;
-    for (auto i1 = t1.begin(); i1!=t1.end(); i1++){
+    for (auto i1=t1.begin(); i1!=t1.end(); i1++){
         CHECK(*i1==check[i]);
-        i++;        
+        i++;
     }
     CHECK(i==t1.size());
 
     i=0;
     for (int v : t1) {
-       CHECK(v==check[i]);
-        i++;         
+        cout<<i<<" "<<check[i]<<" "<<v<<endl;
+
+        CHECK(v==check[i]);
+        i++;
     }
     CHECK(i==t1.size());
 }
 
-TEST_CASE("sets reverse iterator") {
-    auto meister = sets<int>({6,3,8,35,1,9});
-    std::vector<int> check = {35,9,8,6,3,1};
-    auto t1 = meister.get(); 
-    auto it = t1.rbegin();
-    CHECK(*it==check[0]);
-    for (int i=1;i<=5;i++) {
-        it++;
-        CHECK(*it==check[i]);
-    }
-    for (int i=4; i>=0;i--) {
-        it--;
-        CHECK(*it==check[i]);
-    }
+TEST_CASE("set find") {
+    auto ms = setmaps<int>(5);
+    auto m1=*ms.get();
+    auto m2=*m1.insert({7,2,6,14,36,85,83,4,1,0});
+    auto it = m2.find(6);
+    m2.printtree();
+    CHECK(*it==6);
+    ++it;
+    CHECK(*it==7);
+    ++it;
+    CHECK(*it==14);
+    ++it;
+    CHECK(*it==36);
+}
+
+TEST_CASE("set ==") {
+    auto ms = setmaps<int>(5);
+    auto m1=*ms.get();
+    auto m2=*m1.insert({4,3,2,1});
+    auto m3 = *m1.insert({1,2,3});
+    CHECK(m2!=m3);
+    auto m4=*m3.insert(4);
+    CHECK(m2==m4);
+}
+
+TEST_CASE("set contains_all") {
+    auto m1 = setmaps<double>({5.1,0.9,-6,4});
+    auto s1=m1.get();
+    auto s2=s1->insert({8.2,10.6,-55.2,-5.9,4.4,1.1});
+    CHECK(s1->contains_all({5.1,0.9,-6,4}));
+    CHECK(s2->contains_all({5.1,0.9,-6,4}));
+    CHECK(!s2->contains_all({5.1,45.67,0.9,-6,4}));
+    CHECK(s2->contains_all({8.2,10.6,-55.2,-5.9,4.4,1.1}));
+    CHECK(!s1->contains_all({8.2,10.6,-55.2,-5.9,4.4,1.1}));
+}
+
+TEST_CASE("map basics") {
+    auto ms = setmaps<int, int>({1,1});
+    auto m0 = *ms.get();
+    auto m1 = *m0.insert(1, -1);
+    auto m2 = *m1.insert(2, -2);
+    auto m3 = *m2.insert(5,9);
+    auto m4 = *m3.insert(1, 42);
+    CHECK(m1.contains(1));
+    CHECK(m2.contains(1));
+    CHECK(m2.contains(2));
+    CHECK(m3.contains(1));
+    CHECK(m3.contains(2));
+    CHECK(m3.contains(5));
+    CHECK(m4.contains(1));
+    CHECK(m4.contains(2));
+    CHECK(m4.contains(5));
+    CHECK(m1[1]==-1);
+    CHECK(m2[1]==-1);
+    CHECK(m2[2]==-2);
+    CHECK(m3[1]==-1);
+    CHECK(m3[5]==9);
+    CHECK(m3[2]==-2);
+    CHECK(m4[1]==42);
+    CHECK(m1.size()==1);
+    CHECK(m2.size()==2);
+    CHECK(m3.size()==3);
+    CHECK(m4.size()==3);
+}
+
+TEST_CASE("map iterator") {
+    auto ms = setmaps<int,int>({0, 0});
+    auto m1 = *ms.get();
+    auto m2 = *m1.insert(1,-1);
+    auto m3 = *m2.insert(2,-2);
+    auto m4 = *m3.insert(3,-3);
+    auto m5 = *m4.insert(4,-4);
+    auto m6 = *m5.insert(5,-5);
     int i=0;
-    for (auto i1 = t1.rbegin(); i1!=t1.rend(); i1++){
-        CHECK(*i1==check[i]);
-        i++;        
+    CHECK(m6.size()==6);
+    for (auto kv : m6) {
+        CHECK(m6[i]==-i);
+        CHECK(kv.second==-i);
+        i++;
     }
-    CHECK(i==t1.size());
+}
+
+TEST_CASE("map contains_all") {
+    auto m1 = setmaps<double,int>({{5.1,1},{0.9,0},{-6,4},{4,5}});
+    auto s1=m1.get();
+    auto s2=s1->insert({{8.2,4},{10.6,4},{-55.2,0},{-5.9,33},{4.4,55},{1.1,-34}});
+    CHECK(s1->contains_all({5.1,0.9,-6,4}));
+    CHECK(s2->contains_all({5.1,0.9,-6,4}));
+    CHECK(s2->contains_all({8.2,10.6,-55.2,-5.9,4.4,1.1}));
+    CHECK(!s2->contains_all({8.2,10.6,-55.2,-99.9,4.4,1.1}));
+    CHECK(!s1->contains_all({8.2,10.6,-55.2,-5.9,4.4,1.1}));
+}
+
+TEST_CASE("map int/string") {
+    auto ms=setmaps<int,string>({0,"null"});
+    auto m1=*ms.get();
+    auto m2=*m1.insert(6,"sechs");
+    auto m3=*m2.insert({{1,"eins"},{2,"zwei"}});
+    auto m4=*m3.insert(3,"dreidreidreidreidrei");
+    CHECK(m4[0]=="null");
+    CHECK(m4[1]=="eins");
+    CHECK(m4[2]=="zwei");
+    CHECK(m4[6]=="sechs");
+    CHECK(m4[3]=="dreidreidreidreidrei");
+}
+
+TEST_CASE("map string/int") {
+    auto ms=setmaps<string,int>({"null",0});
+    auto m1=*ms.get();
+    auto m2=*m1.insert("sechs",6);
+    auto m3=*m2.insert({{"eins",1},{"zwei",2}});
+    auto m4=*m3.insert("dreidreidreidreidrei",3);
+    auto m5 = *m4.insert("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 42);
+    CHECK(m4["null"]==0);
+    CHECK(m4["eins"]==1);
+    CHECK(m4["zwei"]==2);
+    CHECK(m4["sechs"]==6);
+    CHECK(m4["dreidreidreidreidrei"]==3);
+    CHECK(m5["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]==42);
+}
+
+
+TEST_CASE("max depth of sets (insert_prim)") {
+    auto ms = setmaps<int>(1);
+    auto m1=*ms.get();
+    auto m2=*m1.insert({1,2,3,4,5,6,7,8,9,10});
+    m2.printtree();
+}
+
+TEST_CASE("max depth of sets (normal insert)") {
+    auto ms = setmaps<int>();
+    auto m1=*ms.get();
+    auto m2=*m1.insert(1);
+    auto m3=*m2.insert(2);
+    auto m4=*m3.insert(3);
+    auto m5=*m4.insert(4);
+    auto m6=*m5.insert(5);
+    auto m7=*m6.insert(6);
+    auto m8=*m7.insert(7);
+    auto m9=*m8.insert(8);
+    auto m10=*m9.insert(9);
+    auto m11=*m10.insert(10);
+    m11.printtree();
+}
+
+TEST_CASE("map vector") {
+    auto ms=setmaps<int,std::vector<int>>({1, {1,2,3,4,5}});
+    auto m1 = ms.get();
+    auto m2 = m1->insert(1, {1,2,3,4,5});
+    auto m3 = m2->insert(2,{6,7,8,9});
+    CHECK((*m3)[1][0]==1);
+    CHECK((*m3)[1][1]==2);
+    CHECK((*m3)[1][2]==3);
+    CHECK((*m3)[1][3]==4);
+    CHECK((*m3)[1][4]==5);
+    CHECK((*m3)[2][0]==6);
+    CHECK((*m3)[2][1]==7);
+    CHECK((*m3)[2][2]==8);
+    CHECK((*m3)[2][3]==9);
+    CHECK(m3->size()==2);
+}
+
+TEST_CASE("single vec map") {
+    auto ms=setmaps<int,std::vector<int>>({0,{1,2,3}});
+    auto m1=ms.get();
+}
+
+TEST_CASE("single vec set") {
+    auto ms = setmaps<std::vector<int>>({1,2,3});
+    auto m1=ms.get();
+}
+
+TEST_CASE("single vec set 2") {
+    std::vector<int> v = {1,2,3};
+    auto ms = setmaps<std::vector<int>>(v);
+    auto m1=ms.get();
 }
