@@ -507,3 +507,14 @@ TEST_CASE("single vec set 2") {
     auto ms = setmaps<std::vector<int>>(v);
     auto m1=ms.get();
 }
+
+TEST_CASE("std::greater") {
+    auto ms = setmaps<int, void, std::greater<int>>({1,2,3});
+    auto m1 = ms.get();
+    auto it=m1->begin();
+    CHECK(*it==3);
+    ++it;
+    CHECK(*it==2);
+    ++it;
+    CHECK(*it==1);
+}

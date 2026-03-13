@@ -16,7 +16,7 @@ namespace cryo {
 
 /*persistent immutable set/map implementation using self-balancing binary trees.
   represents a "family" of sets if v==void and of maps otherwise.*/
-template<typename T, typename V = void>
+template<typename T, typename V = void, typename Compare = std::less<T>>
 class setmaps {
 
     /*the arena used for all setmaps spawned from this family*/
@@ -179,16 +179,16 @@ public:
                return new (arena_->allocate<node>(1)) node(n->left(), n->right(), elem);
             }
 
-            if (key(elem)>n->key())    return balance_node(new (arena_->allocate<node>(1)) node(n->left(), insert_helper(n->right(), elem), n->val()));
+            if (!Compare{}(key(elem),n->key()))    return balance_node(new (arena_->allocate<node>(1)) node(n->left(), insert_helper(n->right(), elem), n->val()));
             else                  return balance_node(new (arena_->allocate<node>(1)) node(insert_helper(n->left(), elem), n->right(), n->val()));
         }
 
         /*recursive helper for contains check*/
         bool contains_helper(node* n, T elem) const {
-            if (n==nullptr)     return false;
-            if (n->key()==elem) return true;
-            if (n->key()>elem)  return contains_helper(n->left(), elem);
-            else                return contains_helper(n->right(), elem);
+            if (n==nullptr)                 return false;
+            if (n->key()==elem)             return true;
+            if (!Compare{}(n->key(),elem))  return contains_helper(n->left(), elem);
+            else                            return contains_helper(n->right(), elem);
         }
 
         //map specific, only for internal compatibility
@@ -199,10 +199,10 @@ public:
 
         /*recursive helper for finding the node containing a specific element/key*/
         node* find_helper(node* cur, T elem) const {
-            if (cur==nullptr)     return nullptr;
-            if (cur->key()==elem) return cur;
-            if (cur->key()<elem)  return find_helper(cur->right(), elem);
-            else                  return find_helper(cur->left(), elem);
+            if (cur==nullptr)                return nullptr;
+            if (cur->key()==elem)            return cur;
+            if (Compare{}(cur->key(),elem))  return find_helper(cur->right(), elem);
+            else                             return find_helper(cur->left(), elem);
         }
 
         /*returns either the input node or a copy of it if it is not already in the set*/
@@ -232,7 +232,7 @@ public:
                 return newnode;
             }
             
-            if (key(val)>n->key()) {
+            if (!Compare{}(key(val),n->key())) {
                 newnode = change_or_copy(n, changed);
                 newnode->set_left(n->left());
                 newnode->set_right(insert_single(n->right(), val, changed));
