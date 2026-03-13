@@ -90,7 +90,7 @@ public:
         size_t capacity_;
         /*bitshift amount at the root level. power of 2.*/
         size_t shift_;
-        /*pointer to the arena of the "parent" trees element to be used for allocation*/
+        /*pointer to the arena of the "parent" vectors element to be used for allocation*/
         arena* arena_;
 
         vector() = delete;
@@ -131,7 +131,7 @@ public:
             int s = shift_;
             while (s != 0) {
                 s -= B;
-                if (cur->child((i>>s)%M)==nullptr) {
+                if (cur->child((i>>s)%M)==nullptr) { //DAS IST EIN PROBLEM
                     cur->child((i>>s)%M) = new (arena_->allocate<node>(1)) node(s==0);
                 }
                 cur = cur->child((i>>s)%M);
