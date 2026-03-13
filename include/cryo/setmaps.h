@@ -10,6 +10,7 @@
 #include <string>
 #include <type_traits>
 #include <vector>
+
 using arena = fe::Arena;
 
 namespace cryo {
@@ -27,14 +28,14 @@ class setmaps {
 public:
     /*persistent immutable set/map implementation using self-balancing binary trees.
     represents a set if v==void and a map otherwise.*/
-    class setmap { 
+    class setmap {
         using arena = fe::Arena;
 
         /*bool representing whether this is a set or a map*/
         const bool is_set = std::is_void_v<V>;
 
         private:
-        /*singular node of the tree. includes self-balancing functionality 
+        /*singular node of the tree. includes self-balancing functionality
           but does not feature parent nodes.*/
         class node {
             public:
@@ -78,14 +79,14 @@ public:
             /*updates the right child and recalculates height and balance. should only be called
               on newly created nodes that are not required in other persistent states of the tree.*/
             void set_right(node* n) { right_ = n; recalculate_balance(); }
-            
+
             void set_val(value_type v) { val_ = v; }
 
             bool has_left() const { return left_!=nullptr; }
             bool has_right() const { return right_!=nullptr; }
-            
+
             private:
-            
+
             node* left_ = nullptr;
             node* right_ = nullptr;
             value_type val_;
@@ -112,8 +113,8 @@ public:
 
         //balancing stuff -------------------------------------------
 
-        /*rotates the node and its right child. should ONLY be called during the insertion process 
-          for nodes where the right node should just have been created and are not in use by any 
+        /*rotates the node and its right child. should ONLY be called during the insertion process
+          for nodes where the right node should just have been created and are not in use by any
           previous states of the tree so as not to break the traversal for those other trees */
         node* left_rotate(node* n) {
             node* r = n->right();  //
@@ -123,19 +124,19 @@ public:
             return r;
         }
 
-        /*rotates the node and its left child. should ONLY be called during the insertion process 
-          for nodes where the left node should just have been created and are not in use by any 
+        /*rotates the node and its left child. should ONLY be called during the insertion process
+          for nodes where the left node should just have been created and are not in use by any
           previous states of the tree so as not to break the traversal for those other trees */
         node* right_rotate(node* n) {
             node* l = n->left();  //
             node* lr = l->right();
-            n->set_left(lr); 
-            l->set_right(n); 
+            n->set_left(lr);
+            l->set_right(n);
             return l;
         }
 
-        /*performs a balancing operation on the node, rotating either right or left if the node 
-          is unbalanced. does not perform copies, so must be used very carefully to not break 
+        /*performs a balancing operation on the node, rotating either right or left if the node
+          is unbalanced. does not perform copies, so must be used very carefully to not break
           traversal for different persistent states.*/
         node* balance_node(node* n) {
             int bal = n->balance();
@@ -220,7 +221,7 @@ public:
                 newnode = new (arena_->allocate<node>(1)) node(val);
                 changed->insert(newnode);
                 return newnode;
-            } 
+            }
 
             if (n->key()==key(val)) {
                 size_--;
@@ -231,8 +232,8 @@ public:
                 changed->insert(newnode);
                 return newnode;
             }
-            
-            if (!Compare{}(key(val),n->key())) {
+
+            if (val>n->val()) {
                 newnode = change_or_copy(n, changed);
                 newnode->set_left(n->left());
                 newnode->set_right(insert_single(n->right(), val, changed));
@@ -241,16 +242,16 @@ public:
                 newnode = change_or_copy(n, changed);
                 newnode->set_left(insert_single(n->left(), val, changed));
                 newnode->set_right(n->right());
-            } 
-            
+            }
+
             changed->insert(newnode);
-            return balance_node(newnode);            
+            return balance_node(newnode);
         }
 
         /*inserts a list one element at a time, only copying each existing node once*/
         void insert_list(std::initializer_list<value_type> vals) {
             std::set<node*> changed = std::set<node*>(); //cursed hier auch std::sets zu nutzen aber naja
-            
+
             for (auto v : vals) {
                 if (is_set&&contains(v)) continue;
                 root_=insert_single(root_, v, &changed);
@@ -348,7 +349,7 @@ public:
                 if (stack_.empty()) { current_=nullptr; return *this; } //end reached
                 current_=stack_.back();
                 stack_.pop_back();
-                return *this; 
+                return *this;
             }
             iterator operator++(int) { iterator ret = *this; ++(*this); return ret; }
 
@@ -368,11 +369,11 @@ public:
         /*the amount of elements currently in the tree*/
         size_t size() const { return size_; }
 
-        /*checks whether a key is included in the set 
+        /*checks whether a key is included in the set
           (no point in checking for a key/value pair in a map, just check for the key)*/
         bool contains(T elem) const { return contains_helper(root_, elem); }
-        
-        /*checks whether a list of keys in included in the set 
+
+        /*checks whether a list of keys in included in the set
           (no point in checking for a key/value pair in a map, just check for the key)*/
         bool contains_all(std::initializer_list<T> elems) const {
             for (auto v : elems) {
