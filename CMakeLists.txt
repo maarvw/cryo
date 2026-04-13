@@ -14,10 +14,14 @@ endif()
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CRYO_FE "../fe" CACHE PATH "location of FE")
 
 add_library(cryo INTERFACE)
-target_link_libraries(cryo PUBLIC INTERFACE fe)
-
+target_include_directories(cryo
+    INTERFACE
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/${CRYO_FE}/include>
+        $<INSTALL_INTERFACE:include> # TODO
+)
 
 target_sources(cryo
     INTERFACE
@@ -25,7 +29,7 @@ target_sources(cryo
         BASE_DIRS include
         TYPE HEADERS
         FILES
-            include/cryo/set.h
+            include/cryo/setmaps.h
 )
 
 target_include_directories(cryo INTERFACE $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
@@ -75,10 +79,6 @@ install(
     FILES_MATCHING PATTERN "*.h"
 )
 
-add_subdirectory(external/fe)
-
-include(CTest)
 if(BUILD_TESTING)
-    add_subdirectory(external/fe/external/doctest)
     add_subdirectory(tests)
 endif()
