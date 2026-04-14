@@ -332,7 +332,8 @@ public:
                 }
 
             /*returns the element of the node currently pointed to by the iterator*/
-            const value_type& operator*() const {return current_->val(); }
+            const value_type& operator*() const { return current_->val(); }
+            const value_type* operator->() const { return &current_->val(); }
 
             /*increments the iterator by one*/
             iterator& operator++() {
@@ -362,9 +363,9 @@ public:
             bool operator>=(const iterator& other) const { return this->current_->key()>=other->current_->key(); };
         };
         /*returns an iterator to the first and smallest element in the tree*/
-        iterator begin() { return iterator(this); }
+        iterator begin() const { return iterator(this); }
         /*returns an iterator that acts as a sentinel after the last element of the tree*/
-        iterator end() { return iterator(this, nullptr); }
+        iterator end() const { return iterator(this, nullptr); }
 
         /*the amount of elements currently in the tree*/
         size_t size() const { return size_; }
@@ -384,7 +385,7 @@ public:
 
         /*returns an iterator to the node containing elem.
           returns end() if elem isn't in the set.*/
-        iterator find(T elem) { return iterator(this, elem); }
+        iterator find(T elem) const { return iterator(this, elem); }
 
         /*compares whether 2 setmaps contain all of the same elements*/
         bool operator==(setmap other) const {
