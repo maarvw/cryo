@@ -19,14 +19,15 @@ namespace cryo {
   represents a set if v==void and a map otherwise.*/
 template<typename T, typename V = void, typename Compare = std::less<T>>
 class setmap {
-
+    public:
     /*for internal compatibility between sets & maps*/
     using value_type = std::conditional_t<std::is_void_v<V>, T, std::pair<T, V>>;
+    using mapped_type = V;
 
     using arena = fe::Arena;
 
     /*bool representing whether this is a set or a map*/
-    const bool is_set = std::is_void_v<V>;
+    bool is_set = std::is_void_v<V>;
 
     private:
     /*singular node of the tree. includes self-balancing functionality
@@ -272,21 +273,18 @@ public:
 
     /*regular constructor creating the first member of a new "family" of setmaps
       with no starting elements*/
-    setmap() {
-        setmap(new arena);
-    }
+    setmap() :
+        setmap(new arena) {}
 
     /*regular constructor creating the first member of a new "family" of setmaps
       with one starting element*/
-    setmap(value_type elem) {
-        setmap(elem, new arena);
-    }
+    setmap(value_type elem) :
+        setmap(elem, new arena) {}
 
     /*regular constructor creating the first member of a new "family" of setmaps
       with multiple starting elements*/
-    setmap(std::initializer_list<value_type> elems) {
-        setmap(elems, new arena);
-    }
+    setmap(std::initializer_list<value_type> elems) :
+        setmap(elems, new arena) {}
 
     /*standard destructor*/
     ~setmap() {
@@ -295,19 +293,24 @@ public:
 
     //public functions (both modes)--------------------------------------------------
 
+    /*returns whether the root element is null or not*/
+    bool empty() { return root_==nullptr; }
+
+    //setmap& operator=(setmap& other) = default;
+
     /*iterator going forward through the tree, using a stack implementation*/
     struct iterator {
         using difference_type = std::ptrdiff_t;
         using value_type = setmap::value_type;
         using iterator_category = std::forward_iterator_tag;
 
-        setmap* setmap_;
+        const setmap* setmap_;
         node* current_;
         std::vector<node*> stack_ = std::vector<node*>();
 
         iterator() = default;
 
-        iterator(setmap* set) :
+        iterator(const setmap* set) :
             setmap_(set), current_(set->root_) {
                 if (!current_->has_left()) {
                     return;
@@ -320,7 +323,7 @@ public:
                 stack_.pop_back();
             }
 
-        iterator(setmap* set, node* n) :
+        iterator(const setmap* set, node* n) :
             setmap_(set), current_(set->root_) {
                 if (n==nullptr) {current_=nullptr; return;} //end() case
                 T nval = n->key();
@@ -335,7 +338,7 @@ public:
                 }
             }
 
-        iterator(setmap* set, T elem) :
+        iterator(const setmap* set, T elem, int*) :
             setmap_(set), current_(set->root_) {
                 if (!set->contains(elem)) throw std::runtime_error("bad node");
                 if (current_->key()==elem) return;
@@ -403,7 +406,7 @@ public:
 
     /*returns an iterator to the node containing elem.
         returns end() if elem isn't in the set.*/
-    iterator find(T elem) const { return iterator(this, elem); }
+    iterator find(T elem) const { return iterator(this, elem, nullptr); }
 
     /*compares whether 2 setmaps contain all of the same elements*/
     bool operator==(setmap other) const {
@@ -421,25 +424,33 @@ public:
 
     /*inserts an element into the set. returns a new persistent copy with a new root element.*/
     template <typename U = V, typename = std::enable_if_t<std::is_void_v<U>>>
-    setmap* insert(T elem) {
+    setmap insert(T elem) {
         if (contains(elem)) return this;
         if (root_==nullptr) {
             node* newnode = new (arena_->allocate<node>(1)) node(elem);
             setmap* newset = new (arena_->allocate<setmap>(1)) setmap(arena_, newnode, 1);
-            return newset;
+            return *newset;
         }
         node* newnode = insert_helper(root_, elem);
         setmap* newset = new (arena_->allocate<setmap>(1)) setmap(arena_,newnode,size_+1);
-        return newset;
+        return *newset;
+    }
+    template <typename U = V, typename = std::enable_if_t<std::is_void_v<U>>>
+    setmap emplace(T elem) {
+        return insert(elem);
     }
 
     /*inserts a list of elements into the set. only copies what is necessary and returns a new persistent copy with a new root element.*/
     template <typename U = V, typename = std::enable_if_t<std::is_void_v<U>>>
-    setmap* insert(std::initializer_list<T> elems) {
+    setmap insert(std::initializer_list<T> elems) {
         if (contains_all(elems)) return this;
         setmap* newset = new (arena_->allocate<setmap>(1)) setmap(arena_,root_,size_);
         newset->insert_list(elems);
-        return newset;
+        return *newset;
+    }
+    template <typename U = V, typename = std::enable_if_t<std::is_void_v<U>>>
+    setmap emplace(std::initializer_list<T> elems) {
+        return insert(elems);
     }
 
     //map specific functions------------------------------------------
@@ -456,24 +467,32 @@ public:
 
     /*inserts a key/value pair into the map. returns a new persistent copy with a new root element.*/
     template <typename U = V, typename = std::enable_if_t<!std::is_void_v<U>>>
-    setmap* insert(T key, U value) {
+    setmap insert(T key, U value) {
         if (root_==nullptr) {
-            node* newnode = new (arena_->allocate<node>(1)) node({key,value});
+            node* newnode = new (arena_->allocate<node>(1)) node(std::pair(key,value));
             setmap* newmap = new (arena_->allocate<setmap>(1)) setmap(arena_, newnode, 1);
-            return newmap;
+            return *newmap;
         }
         size_t newsize = size_+!contains(key); //cursed
-        node* newnode = insert_helper(root_, {key,value});
-        setmap* newmap =new (arena_->allocate<setmap>(1)) setmap(arena_,newnode,newsize);
-        return newmap;
+        node* newnode = insert_helper(root_, std::pair(key,value));
+        setmap* newmap = new (arena_->allocate<setmap>(1)) setmap(arena_,newnode,newsize);
+        return *newmap;
+    }
+    template <typename U = V, typename = std::enable_if_t<!std::is_void_v<U>>>
+    setmap emplace(T key, U value) {
+        return insert(key, value);
     }
 
     /*inserts a list of key/value pairs into the map. only copies what is necessary and returns a new persistent copy with a new root element.*/
     template <typename U = V, typename = std::enable_if_t<!std::is_void_v<U>>>
-    setmap* insert(std::initializer_list<std::pair<T,V>> elems) {
+    setmap insert(std::initializer_list<std::pair<T,V>> elems) {
         setmap* newmap = new (arena_->allocate<setmap>(1)) setmap(arena_,root_,size_);
         newmap->insert_list(elems);
-        return newmap;
+        return *newmap;
+    }
+    template <typename U = V, typename = std::enable_if_t<!std::is_void_v<U>>>
+    setmap emplace(std::initializer_list<std::pair<T,V>> elems) {
+        return insert(elems);
     }
 
     //some debug stuff, could be private, could be deleted later ------------------------

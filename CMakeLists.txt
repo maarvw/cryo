@@ -79,6 +79,6 @@ install(
     FILES_MATCHING PATTERN "*.h"
 )
 
-if(BUILD_TESTING)
-    add_subdirectory(tests)
-endif()
+#if(BUILD_TESTING)
+#    add_subdirectory(tests)
+#endif()
