@@ -477,8 +477,6 @@ public:
         return kek->val().second;
     }
 
-    //insert for only key? (setting value to default?)
-
     /*inserts a key/value pair into the map. returns a new persistent copy with a new root element.*/
     template <typename U = V, typename = std::enable_if_t<!std::is_void_v<U>>>
     setmap insert(T key, U value) {
@@ -523,7 +521,7 @@ public:
 
     void printer(node* n) const {
         if (n==nullptr) return;
-        std::cout<<"val: "<<n->val()<<", height: "<<n->height()<<std::endl<<"-> "<<
+        if constexpr ((std::is_same_v<T, int> || std::is_same_v<T, std::string>)&&(std::is_same_v<V, int> || std::is_same_v<V, std::string>)) std::cout<<"val: "<<n->val()<<", height: "<<n->height()<<std::endl<<"-> "<<
         (n->has_left()?std::to_string(n->left()->val()):"X")<<" "<<
         (n->has_right()?std::to_string(n->right()->val()):"X")<<std::endl<<std::endl;
         printer(n->left());
@@ -532,6 +530,8 @@ public:
 
     /*prints the tree for debug purposes*/
     void printtree() const {
+        if constexpr (!std::is_same_v<T, int> && !std::is_same_v<T, std::string>) return;
+        if constexpr (!std::is_same_v<V, int> && !std::is_same_v<V, std::string>) return;
         printer(root_);
     }
 
