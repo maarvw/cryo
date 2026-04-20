@@ -13,6 +13,26 @@
 
 using arena = fe::Arena;
 
+// template <typename P>
+// struct is_unique_ptr : std::false_type {};
+
+// template <typename P, typename Deleter>
+// struct is_unique_ptr<std::unique_ptr<P, Deleter>> : std::true_type {};
+
+// template <typename P>
+// inline constexpr bool is_unique_ptr_v = is_unique_ptr<P>::value;
+
+// template <typename T>
+// auto move_if_unique_ptr(T& val) {
+//     if constexpr (is_unique_ptr_v<T>) {
+//         return val;
+//     } else {
+//         return val;
+//     }
+// }
+
+// #define MOVE_OR_NOT(X) move_if_unique_ptr(X)
+
 namespace cryo {
 
 /*persistent immutable set/map implementation using self-balancing binary trees.
@@ -36,12 +56,12 @@ class setmap {
         public:
         /*constructor setting only the value, mostly for leaf nodes*/
         node(value_type val) :
-            val_(std::move(val)) {
+            val_(val) {
         }
 
         /*constructor for inner nodes. recalculates height and balance.*/
         node(node* l, node* r, value_type val) :
-            left_(l), right_(r), val_(std::move(val)) {
+            left_(l), right_(r), val_(val) {
                 recalculate_balance();
             }
 
@@ -194,16 +214,16 @@ class setmap {
     /*inserts a new node into the tree, also performing balancing operations.
         returns the newly created and balanced node (initial call returns new root)*/
     node* insert_helper(node* n, value_type elem) {
-        if (n==nullptr) return new (arena_->allocate<node>(1)) node(std::move(elem));
+        if (n==nullptr) return new (arena_->allocate<node>(1)) node(elem);
 
-        if (n->key()==key(std::move(elem))) {
+        if (n->key()==key(elem)) {
             if (is_set) throw std::runtime_error("set already contains element");
             //map case: insert new value for existing key in the middle of the tree
-            return new (arena_->allocate<node>(1)) node(n->left(), n->right(), std::move(elem));
+            return new (arena_->allocate<node>(1)) node(n->left(), n->right(), elem);
         }
 
-        if (!Compare{}(key(std::move(elem)),n->key()))    return balance_node(new (arena_->allocate<node>(1)) node(n->left(), insert_helper(n->right(), std::move(elem)), std::move(n->val())));
-        else                  return balance_node(new (arena_->allocate<node>(1)) node(insert_helper(n->left(), std::move(elem)), n->right(), std::move(n->val())));
+        if (!Compare{}(key(elem),n->key()))    return balance_node(new (arena_->allocate<node>(1)) node(n->left(), insert_helper(n->right(), elem), n->val()));
+        else                  return balance_node(new (arena_->allocate<node>(1)) node(insert_helper(n->left(), elem), n->right(), n->val()));
     }
 
     /*recursive helper for contains check*/
@@ -340,7 +360,7 @@ public:
             setmap_(set), current_(set->root_) {
                 if (n==nullptr) {current_=nullptr; return;} //end() case
                 T nval = n->key();
-                if (!set->contains(nval)) throw std::runtime_error("bad node");
+                if (!set->contains(nval)) { current_=nullptr; return; }
                 current_ = set->root_;
                 if (current_==n) return;
                 while (current_!=n) {
@@ -351,9 +371,9 @@ public:
                 }
             }
 
-        iterator(const setmap* set, T elem, int*) :
+        iterator(const setmap* set, T elem, int*) : //just for find()
             setmap_(set), current_(set->root_) {
-                if (!set->contains(elem)) throw std::runtime_error("bad node");
+                if (!set->contains(elem)) { current_=nullptr; return; }
                 if (current_->key()==elem) return;
                 while (current_->key()!=elem) {
                     if (current_->key()<elem) current_=current_->right();
@@ -481,18 +501,18 @@ public:
     template <typename U = V, typename = std::enable_if_t<!std::is_void_v<U>>>
     setmap insert(T key, U value) {
         if (root_==nullptr) {
-            node* newnode = new (arena_->allocate<node>(1)) node(std::pair(std::move(key),std::move(value)));
+            node* newnode = new (arena_->allocate<node>(1)) node(std::pair(key,value));
             setmap* newmap = new (arena_->allocate<setmap>(1)) setmap(arena_, newnode, 1);
             return *newmap;
         }
         size_t newsize = size_+!contains(key); //cursed
-        node* newnode = insert_helper(root_, std::pair(std::move(key),std::move(value)));
+        node* newnode = insert_helper(root_, std::pair(key,value));
         setmap* newmap = new (arena_->allocate<setmap>(1)) setmap(arena_,newnode,newsize);
         return *newmap;
     }
     template <typename U = V, typename = std::enable_if_t<!std::is_void_v<U>>>
     setmap emplace(T key, U value) {
-        return insert(std::move(key), std::move(value));
+        return insert(key, value);
     }
 
     /*inserts a list of key/value pairs into the map. only copies what is necessary and returns a new persistent copy with a new root element.*/
