@@ -527,6 +527,41 @@ public:
     //     return insert(elems);
     // }
 
+    using str = std::string;
+
+    str dot() const {
+        str ret = "digraph setmap {\n";
+        for (auto it = begin();it!=end();++it){
+            auto n = it.current_;
+            if (n->has_left()) {
+                str source;
+                if constexpr (std::is_void_v<V>) source = std::to_string(*it);
+                else source = "\""+std::to_string(it->first)+": "+std::to_string(it->second)+"\"";
+                str dest;
+                auto l = n->left()->val();
+                if constexpr (std::is_void_v<V>) dest = std::to_string(l);
+                else dest = "\""+std::to_string(l.first)+": "+std::to_string(l.second)+"\"";
+                ret += source +" -> "+dest+";\n";
+            } 
+            if (n->has_right()) {
+                str source;
+                if constexpr (std::is_void_v<V>) source = std::to_string(*it);
+                else source = "\""+std::to_string(it->first)+": "+std::to_string(it->second)+"\"";
+                str dest;
+                auto r = n->right()->val();
+                if constexpr (std::is_void_v<V>) dest = std::to_string(r);
+                else dest = "\""+std::to_string(r.first)+": "+std::to_string(r.second)+"\"";
+                ret += source +" -> "+dest+";\n";
+            }
+        }
+        ret+="}";
+        return ret;
+    }
+
+
+
+
+
     //some debug stuff, could be private, could be deleted later ------------------------
 
     int depthchecker(node* n) const {
