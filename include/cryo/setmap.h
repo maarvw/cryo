@@ -510,10 +510,10 @@ public:
         setmap* newmap = new (arena_->allocate<setmap>(1)) setmap(arena_,newnode,newsize);
         return *newmap;
     }
-    template <typename U = V, typename = std::enable_if_t<!std::is_void_v<U>>>
-    setmap emplace(T key, U value) {
-        return insert(key, value);
-    }
+    // template <typename U = V, typename = std::enable_if_t<!std::is_void_v<U>>>
+    // setmap emplace(T key, U value) {
+    //     return insert(key, value);
+    // }
 
     /*inserts a list of key/value pairs into the map. only copies what is necessary and returns a new persistent copy with a new root element.*/
     template <typename U = V, typename = std::enable_if_t<!std::is_void_v<U>>>
@@ -522,10 +522,10 @@ public:
         newmap->insert_list(elems);
         return *newmap;
     }
-    template <typename U = V, typename = std::enable_if_t<!std::is_void_v<U>>>
-    setmap emplace(std::initializer_list<std::pair<T,V>> elems) {
-        return insert(elems);
-    }
+    // template <typename U = V, typename = std::enable_if_t<!std::is_void_v<U>>>
+    // setmap emplace(std::initializer_list<std::pair<T,V>> elems) {
+    //     return insert(elems);
+    // }
 
     //some debug stuff, could be private, could be deleted later ------------------------
 
@@ -557,6 +557,20 @@ public:
 
  
 static_assert(std::forward_iterator<typename setmap::iterator>);
+};
+
+template<typename T, typename V = void, typename Compare = std::less<T>>
+struct freezer {
+    using sm = setmap<T,V,Compare>;
+    sm sm_;
+    sm* ptr_;
+
+    freezer(sm* s) :
+        sm_(*s), ptr_(s) {}
+
+    ~freezer() {
+        *ptr_ = sm_;
+    }
 };
 
 }
