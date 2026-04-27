@@ -10,6 +10,8 @@
 #include <string>
 #include <type_traits>
 #include <vector>
+#include <fstream>
+#include <filesystem>
 
 using arena = fe::Arena;
 
@@ -345,6 +347,7 @@ public:
 
         iterator(const setmap* set) :
             setmap_(set), current_(set->root_) {
+                if (current_==nullptr) return;
                 if (!current_->has_left()) {
                     return;
                 }
@@ -529,37 +532,42 @@ public:
 
     using str = std::string;
 
-    str dot() const {
-        str ret = "digraph setmap {\n";
+    /*creates an xdot representation of the set/map and saves it in a specified file*/
+    str save_dot(str where="/tmp/SMdot") const {
+        if (!std::filesystem::exists(where+".tmp"))
+            where = where+".tmp";
+        else {
+            int n = 0;
+            while  (std::filesystem::exists(where+std::to_string(n)+".tmp")) n++;
+            where = where+std::to_string(n)+".tmp";
+        }
+        std::ofstream out(where);
+        out << "digraph setmap {\n";
         for (auto it = begin();it!=end();++it){
             auto n = it.current_;
             if (n->has_left()) {
-                str source;
-                if constexpr (std::is_void_v<V>) source = std::to_string(*it);
-                else source = "\""+std::to_string(it->first)+": "+std::to_string(it->second)+"\"";
-                str dest;
+                if constexpr (std::is_void_v<V>) out << *it;
+                else out << "\""<<it->first<<": "<<it->second<<"\"";
+                out << " -> ";
                 auto l = n->left()->val();
-                if constexpr (std::is_void_v<V>) dest = std::to_string(l);
-                else dest = "\""+std::to_string(l.first)+": "+std::to_string(l.second)+"\"";
-                ret += source +" -> "+dest+";\n";
+                if constexpr (std::is_void_v<V>) out << l;
+                else out << "\""<<l.first<<": "<<l.second<<"\"";
+                out << ";\n";
             } 
             if (n->has_right()) {
-                str source;
-                if constexpr (std::is_void_v<V>) source = std::to_string(*it);
-                else source = "\""+std::to_string(it->first)+": "+std::to_string(it->second)+"\"";
-                str dest;
+                if constexpr (std::is_void_v<V>) out << *it;
+                else out << "\""<<it->first<<": "<<it->second<<"\"";
+                out << " -> ";
                 auto r = n->right()->val();
-                if constexpr (std::is_void_v<V>) dest = std::to_string(r);
-                else dest = "\""+std::to_string(r.first)+": "+std::to_string(r.second)+"\"";
-                ret += source +" -> "+dest+";\n";
+                if constexpr (std::is_void_v<V>) out << r;
+                else out << "\""<<r.first<<": "<<r.second<<"\"";
+                out << ";\n";
             }
         }
-        ret+="}";
-        return ret;
+        out<<"}";
+        out.close();
+        return where;
     }
-
-
-
 
 
     //some debug stuff, could be private, could be deleted later ------------------------
