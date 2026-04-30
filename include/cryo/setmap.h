@@ -3,7 +3,6 @@
 #include "../../external/fe/include/fe/arena.h"
 #include <cstddef>
 #include <initializer_list>
-#include <iostream> //löschen wenn kein debug mehr nötig
 #include <iterator>
 #include <set>
 #include <stdexcept>
@@ -11,31 +10,14 @@
 #include <type_traits>
 #include <vector>
 #include <fstream>
-#include <filesystem>
 
 using arena = fe::Arena;
 
-// template <typename P>
-// struct is_unique_ptr : std::false_type {};
-
-// template <typename P, typename Deleter>
-// struct is_unique_ptr<std::unique_ptr<P, Deleter>> : std::true_type {};
-
-// template <typename P>
-// inline constexpr bool is_unique_ptr_v = is_unique_ptr<P>::value;
-
-// template <typename T>
-// auto move_if_unique_ptr(T& val) {
-//     if constexpr (is_unique_ptr_v<T>) {
-//         return val;
-//     } else {
-//         return val;
-//     }
-// }
-
-// #define MOVE_OR_NOT(X) move_if_unique_ptr(X)
 
 namespace cryo {
+
+class already_inserted_exception : public std::exception {};
+
 
 /*persistent immutable set/map implementation using self-balancing binary trees.
   represents a set if v==void and a map otherwise.*/
@@ -120,13 +102,13 @@ class setmap {
         node* left_ = nullptr;
         node* right_ = nullptr;
         value_type val_;
-        int height_ = 1;
-        int balance_ = 0;
+        size_t height_ = 1;
+        size_t balance_ = 0;
 
         /*recalcalates both the height and balance. automatically called when left or right is modified.*/
         void recalculate_balance() {
-            int rh = (right()!=nullptr?right()->height():0);
-            int lh = (left()!=nullptr?left()->height():0);
+            size_t rh = (right()!=nullptr?right()->height():0);
+            size_t lh = (left()!=nullptr?left()->height():0);
             height_=1+std::max(lh,rh);
             balance_=rh-lh;
         }
@@ -140,13 +122,13 @@ class setmap {
         else                             return k.first;
     }
 
-    //balancing stuff -------------------------------------------
+    //balancing stuff -----------------------------------------------------------------------------------------------------------------------
 
     /*rotates the node and its right child. should ONLY be called during the insertion process
         for nodes where the right node should just have been created and are not in use by any
         previous states of the tree so as not to break the traversal for those other trees */
     node* left_rotate(node* n) {
-        node* r = n->right();  //
+        node* r = n->right();  
         node* rl = r->left();
         n->set_right(rl);
         r->set_left(n);
@@ -157,7 +139,7 @@ class setmap {
         for nodes where the left node should just have been created and are not in use by any
         previous states of the tree so as not to break the traversal for those other trees */
     node* right_rotate(node* n) {
-        node* l = n->left();  //
+        node* l = n->left();  
         node* lr = l->right();
         n->set_left(lr);
         l->set_right(n);
@@ -179,7 +161,7 @@ class setmap {
     }
 
 
-    //normal class stuff ----------------------------------------------
+    //normal class stuff --------------------------------------------------------------------------------------------------------------------------
 
     /*root element of the tree. should be unique to every separate persistent state*/
     node* root_;
@@ -211,7 +193,7 @@ class setmap {
         root_(root), arena_(arena), size_(size) {}
 
 
-    //private helper functions (both modes)---------------------------
+    //private helper functions (both modes)-------------------------------------------------------------------------------------------------------
 
     /*inserts a new node into the tree, also performing balancing operations.
         returns the newly created and balanced node (initial call returns new root)*/
@@ -219,17 +201,19 @@ class setmap {
         if (n==nullptr) return new (arena_->allocate<node>(1)) node(elem);
 
         if (n->key()==key(elem)) {
-            if (is_set) throw std::runtime_error("set already contains element");
+            if constexpr (std::is_void_v<V>) throw already_inserted_exception();
+            else if (n->val().second==elem.second) throw already_inserted_exception();
+
             //map case: insert new value for existing key in the middle of the tree
             return new (arena_->allocate<node>(1)) node(n->left(), n->right(), elem);
         }
 
         if (!Compare{}(key(elem),n->key()))    return balance_node(new (arena_->allocate<node>(1)) node(n->left(), insert_helper(n->right(), elem), n->val()));
-        else                  return balance_node(new (arena_->allocate<node>(1)) node(insert_helper(n->left(), elem), n->right(), n->val()));
+        else                                      return balance_node(new (arena_->allocate<node>(1)) node(insert_helper(n->left(), elem), n->right(), n->val()));
     }
 
     /*recursive helper for contains check*/
-    bool contains_helper(node* n, T elem) const {
+    bool contains_helper(node* n, T elem) const { //could be combined with find_helper to avoid code duplication
         if (n==nullptr)                 return false;
         if (n->key()==elem)             return true;
         if (!Compare{}(n->key(),elem))  return contains_helper(n->left(), elem);
@@ -261,15 +245,16 @@ class setmap {
     node* insert_single(node* n, value_type val, std::set<node*>* changed) {
         node* newnode;
         if (n==nullptr) {
-            size_++;
+            ++size_;
             newnode = new (arena_->allocate<node>(1)) node(val);
             changed->insert(newnode);
             return newnode;
         }
 
         if (n->key()==key(val)) {
-            size_--;
-            if (is_set) throw std::runtime_error("set already contains element");
+            --size_;
+            if constexpr (std::is_void_v<V>) throw already_inserted_exception();
+            else if (n->val().second==val.second) throw already_inserted_exception();
             //map case: insert new value for existing key in the middle of the tree
             newnode = change_or_copy(n, changed);
             newnode->set_val(val);
@@ -277,7 +262,7 @@ class setmap {
             return newnode;
         }
 
-        if (val>n->val()) {
+        if (Compare{}(n->key(),key(val))) {
             newnode = change_or_copy(n, changed);
             newnode->set_left(n->left());
             newnode->set_right(insert_single(n->right(), val, changed));
@@ -298,13 +283,15 @@ class setmap {
 
         for (auto v : vals) {
             if (is_set&&contains(v)) continue;
-            root_=insert_single(root_, v, &changed);
+            try {
+                root_=insert_single(root_, v, &changed);
+            } catch (const already_inserted_exception& e) {}
         }
     }
 
 public:
 
-    //public constructors---------------------------------------------------------
+    //public constructors-------------------------------------------------------------------------------------------------------------------------------------
 
     /*regular constructor creating the first member of a new "family" of setmaps
       with no starting elements*/
@@ -326,12 +313,10 @@ public:
         if (root_) root_->~node();
     }
 
-    //public functions (both modes)--------------------------------------------------
+    //public functions (both modes)------------------------------------------------------------------------------------------------------------------------------
 
     /*returns whether the root element is null or not*/
     bool empty() { return root_==nullptr; }
-
-    //setmap& operator=(setmap& other) = default;
 
     /*iterator going forward through the tree, using a stack implementation*/
     struct iterator {
@@ -374,7 +359,7 @@ public:
                 }
             }
 
-        iterator(const setmap* set, T elem, int*) : //just for find()
+        iterator(const setmap* set, T elem, void*) : //just for find()
             setmap_(set), current_(set->root_) {
                 if (!set->contains(elem)) { current_=nullptr; return; }
                 if (current_->key()==elem) return;
@@ -448,7 +433,6 @@ public:
     /*compares whether 2 setmaps contain all of the same elements*/
     bool operator==(setmap other) const {
         if (size()!=other.size()) return false;
-        // return contains_all(other);
         for (auto elem : other) if (!contains(elem)) return false;
         return true;
     }
@@ -457,90 +441,77 @@ public:
     bool operator!=(setmap other) const { return !(*this==other); }
 
 
-    //set specific functions------------------------------------------
+    //set specific functions---------------------------------------------------------------------------------------------------------------------------------------------
 
     /*inserts an element into the set. returns a new persistent copy with a new root element.*/
     template <typename U = V, typename = std::enable_if_t<std::is_void_v<U>>>
-    setmap insert(T elem) {
-        if (contains(elem)) return this;
+    setmap& insert(T elem) {
         if (root_==nullptr) {
             node* newnode = new (arena_->allocate<node>(1)) node(elem);
             setmap* newset = new (arena_->allocate<setmap>(1)) setmap(arena_, newnode, 1);
             return *newset;
         }
-        node* newnode = insert_helper(root_, elem);
+        node* newnode;
+        try { 
+            newnode = insert_helper(root_, elem);
+        } catch (const already_inserted_exception&) {
+            return *this;
+        }
         setmap* newset = new (arena_->allocate<setmap>(1)) setmap(arena_,newnode,size_+1);
         return *newset;
-    }
-    template <typename U = V, typename = std::enable_if_t<std::is_void_v<U>>>
-    setmap emplace(T elem) {
-        return insert(elem);
     }
 
     /*inserts a list of elements into the set. only copies what is necessary and returns a new persistent copy with a new root element.*/
     template <typename U = V, typename = std::enable_if_t<std::is_void_v<U>>>
-    setmap insert(std::initializer_list<T> elems) {
-        if (contains_all(elems)) return this;
+    setmap& insert(std::initializer_list<T> elems) {
+        if (contains_all(elems)) return *this;
         setmap* newset = new (arena_->allocate<setmap>(1)) setmap(arena_,root_,size_);
         newset->insert_list(elems);
         return *newset;
     }
-    template <typename U = V, typename = std::enable_if_t<std::is_void_v<U>>>
-    setmap emplace(std::initializer_list<T> elems) {
-        return insert(elems);
-    }
 
-    //map specific functions------------------------------------------
+    //map specific functions----------------------------------------------------------------------------------------------------------------------
 
     /*returns the value for a given key. throws exception if the key does not exist in this map*/
     template<typename U = V,  typename = std::enable_if_t<!std::is_void_v<U>>>
     const V operator[](T key) const {
-        auto kek = find_helper(root_, key);
-        if (kek==nullptr) throw std::runtime_error("key does not exist here");
-        return kek->val().second;
+        auto n = find_helper(root_, key);
+        if (n==nullptr) throw std::runtime_error("key does not exist here");
+        return n->val().second;
     }
 
     /*inserts a key/value pair into the map. returns a new persistent copy with a new root element.*/
     template <typename U = V, typename = std::enable_if_t<!std::is_void_v<U>>>
-    setmap insert(T key, U value) {
+    setmap& insert(T key, U value) {
         if (root_==nullptr) {
             node* newnode = new (arena_->allocate<node>(1)) node(std::pair(key,value));
             setmap* newmap = new (arena_->allocate<setmap>(1)) setmap(arena_, newnode, 1);
             return *newmap;
         }
         size_t newsize = size_+!contains(key); //cursed
-        node* newnode = insert_helper(root_, std::pair(key,value));
+        node* newnode;
+        try {
+            newnode = insert_helper(root_, std::pair(key,value));
+        } catch (const already_inserted_exception&) {
+            return *this;
+        }
         setmap* newmap = new (arena_->allocate<setmap>(1)) setmap(arena_,newnode,newsize);
         return *newmap;
     }
-    // template <typename U = V, typename = std::enable_if_t<!std::is_void_v<U>>>
-    // setmap emplace(T key, U value) {
-    //     return insert(key, value);
-    // }
 
     /*inserts a list of key/value pairs into the map. only copies what is necessary and returns a new persistent copy with a new root element.*/
     template <typename U = V, typename = std::enable_if_t<!std::is_void_v<U>>>
-    setmap insert(std::initializer_list<std::pair<T,V>> elems) {
+    setmap& insert(std::initializer_list<std::pair<T,V>> elems) {
         setmap* newmap = new (arena_->allocate<setmap>(1)) setmap(arena_,root_,size_);
         newmap->insert_list(elems);
         return *newmap;
     }
-    // template <typename U = V, typename = std::enable_if_t<!std::is_void_v<U>>>
-    // setmap emplace(std::initializer_list<std::pair<T,V>> elems) {
-    //     return insert(elems);
-    // }
 
     using str = std::string;
 
     /*creates an xdot representation of the set/map and saves it in a specified file*/
-    str save_dot(str where="/tmp/SMdot") const {
-        if (!std::filesystem::exists(where+".tmp"))
-            where = where+".tmp";
-        else {
-            int n = 0;
-            while  (std::filesystem::exists(where+std::to_string(n)+".tmp")) n++;
-            where = where+std::to_string(n)+".tmp";
-        }
+    str save_dot() const {
+        str where="/tmp/SMdot.tmp";
         std::ofstream out(where);
         out << "digraph setmap {\n";
         for (auto it = begin();it!=end();++it){
@@ -569,38 +540,11 @@ public:
         return where;
     }
 
-
-    //some debug stuff, could be private, could be deleted later ------------------------
-
-    int depthchecker(node* n) const {
-        if (n==nullptr) return 0;
-        return 1+(std::max(depthchecker(n->left()),depthchecker(n->right())));
-    }
-
-    /*returns the maximum depth of the tree for debug purposes*/
-    int checkmaxdepth() const {
-        return depthchecker(root_);
-    }
-
-    void printer(node* n) const {
-        if (n==nullptr) return;
-        if constexpr ((std::is_same_v<T, int> || std::is_same_v<T, std::string>)&&(std::is_same_v<V, int> || std::is_same_v<V, std::string>)) std::cout<<"val: "<<n->val()<<", height: "<<n->height()<<std::endl<<"-> "<<
-        (n->has_left()?std::to_string(n->left()->val()):"X")<<" "<<
-        (n->has_right()?std::to_string(n->right()->val()):"X")<<std::endl<<std::endl;
-        printer(n->left());
-        printer(n->right());
-    }
-
-    /*prints the tree for debug purposes*/
-    void printtree() const {
-        if constexpr (!std::is_same_v<T, int> && !std::is_same_v<T, std::string>) return;
-        if constexpr (!std::is_same_v<V, int> && !std::is_same_v<V, std::string>) return;
-        printer(root_);
-    }
-
  
 static_assert(std::forward_iterator<typename setmap::iterator>);
 };
+
+
 
 template<typename T, typename V = void, typename Compare = std::less<T>>
 struct freezer {
