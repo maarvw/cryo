@@ -59,7 +59,7 @@ class setmap {
         value_type& val() { return val_; }
 
         T& key() {
-            if constexpr (std::is_void_v<V>) return val_;
+            if constexpr (is_set) return val_;
             else                             return val_.first;
         }
 
@@ -94,7 +94,7 @@ class setmap {
         }
 
         bool equals(node* other) {
-            if constexpr (!std::is_void_v<V>) return equals_map(other);
+            if constexpr (!is_set) return equals_map(other);
             else return equals_set(other);
         }
 
@@ -119,7 +119,7 @@ class setmap {
     /*returns the key from a key-value-pair in a map context.
         functionally a duplicate of the private function in node*/
     T key(value_type k) {
-        if constexpr (std::is_void_v<V>) return k;
+        if constexpr (is_set) return k;
         else                             return k.first;
     }
 
@@ -183,7 +183,6 @@ class setmap {
     /*internal constructor using an existing arena with one element*/
     setmap(value_type elem, arena* arena) :
         root_(nullptr), arr_data_(nullptr), arena_(arena), size_(1) {
-            //root_=new (arena_->allocate<node>(1)) node(elem);
             arr_data_ = new (arena_->allocate<value_type>(1)) value_type();
             *arr_data_ = elem;
         }
@@ -191,7 +190,7 @@ class setmap {
     /*internal constructor using an existing arena with multiple elements*/
     setmap(std::initializer_list<value_type> elems, arena* arena) :
         root_(nullptr), arr_data_(nullptr), arena_(arena), size_(0) {
-            insert_list(elems);
+            insert_list(elems.begin(),elems.end());
         }
 
     /*internal constructor for use in insert functions*/
@@ -220,15 +219,6 @@ class setmap {
         else                                      return balance_node(new (arena_->allocate<node>(1)) node(insert_helper(n->left(), elem), n->right(), n->val()));
     }
 
-    //initial insert call:
-    //key=0x7ffff6b031c8
-    //value=0x6b66c8
-
-    //segfaulting insert_helper call:
-    //first = 0x7ffff6b01df8
-    //second = 0x6b68e8
-
-
     /*recursive helper for contains check*/
     bool contains_helper(node* n, T elem) const { //could be combined with find_helper to avoid code duplication
         if (n==nullptr)                 return false;
@@ -240,9 +230,15 @@ class setmap {
     //map specific, only for internal compatibility
     template <typename U = V, typename = std::enable_if_t<!std::is_void_v<U>>>
     bool contains(value_type elem) const {
-        if (is_small()) {
-            for (size_t i=0; i<size_;++i) {
-                if (arr_data_[i].first==elem.first) return true;
+        if (is_small()) { //binary search through array
+            value_type* start = arr_data_;
+            value_type* last  = start+size_;
+            value_type* mid;
+            while (start!=last) {
+                mid = start+(last-start)/2;
+                if (*mid==elem) return true;
+                if (*mid<elem)  start = mid+sizeof(value_type);
+                else            last  = mid;
             }
             throw std::runtime_error("element not found in array");
         }
@@ -276,7 +272,7 @@ class setmap {
 
         if (n->key()==key(val)) {
             --size_;
-            if constexpr (std::is_void_v<V>) throw already_inserted_exception();
+            if constexpr (is_set) throw already_inserted_exception();
             else if (n->val().second==val.second) throw already_inserted_exception();
             //map case: insert new value for existing key in the middle of the tree
             newnode = change_or_copy(n, changed);
@@ -300,60 +296,16 @@ class setmap {
         return balance_node(newnode);
     }
 
-    value_type* insert_single_small(value_type elem) {
-        value_type* new_arr = new (arena_->allocate<value_type>(size_+1)) value_type[size_+1];
-        bool ins = false;
-        for (auto si = arr_data_, di = new_arr, se = arr_data_+size_; si != se || !ins; ++di) {
-            if constexpr (!is_set) {
-                if (si != se) {
-                    if (elem.first == (*si).first) { // already here
-                        if ((*si).second==elem.second) {
-                            arena_->deallocate(sizeof(value_type)*(size_+1));
-                            return arr_data_;
-                        }
-                        else {
-                            *di = elem, ins = true;
-                            continue;
-                        }
-                    }
-                }
-                if (!ins && (si == se || elem.first < (*si).first))
-                    *di = elem, ins = true;
-                else
-                    *di = *si++;
-            }
-            else if constexpr (is_set) {
-                if (si != se) {
-                    if (elem == (*si)) { // already here
-                        arena_->deallocate(sizeof(value_type)*(size_+1));
-                        return arr_data_;
-                    }
-                }
-            }
-            if (!ins && (si == se || elem < *si))
-                *di = elem, ins = true;
-            else
-                *di = *si++;
-        }
-        size_+=ins;
-        return new_arr;
-    }
 
     /*inserts a list one element at a time, only copying each existing node once*/
-    void insert_list(std::initializer_list<value_type> vals) {
-
-        // if (size_+vals.size()<=ARR_LIMIT) {
-        //     for (auto v : vals)
-        //         arr_data_ = insert_single_small(v);
-        //     return;
-        // }
+    void insert_list(std::forward_iterator auto vbegin, std::forward_iterator auto vend) {
 
         std::set<node*> changed = std::set<node*>(); //cursed hier auch std::sets zu nutzen aber naja
 
-        for (auto v : vals) {
-            if (is_set&&contains(v)) continue;
+        for (auto vi=vbegin;vi!=vend;++vi) {
+            if (is_set&&contains(*vi)) continue;
             try {
-                root_=insert_single(root_, v, &changed);
+                root_=insert_single(root_, *vi, &changed);
             } catch (const already_inserted_exception& e) {}
         }
     }
@@ -403,7 +355,7 @@ public:
 
         iterator(const setmap* set) :
             setmap_(set), is_arr_(set->is_small()), current_(set->root_), idx_(0) {
-                if (setmap_->is_small()) return;
+                if (is_arr_) return;
                 if (current_==nullptr) return;
                 if (!current_->has_left()) {
                     return;
@@ -431,14 +383,27 @@ public:
                 }
             }
 
-        iterator(const setmap* set, T elem, void*) : //just for find()
+        iterator(const setmap* set, T elem, void*) : //just for find() and operator[]
             setmap_(set), is_arr_(set->is_small()), current_(set->root_) {
-                if (is_arr_) {
-                    for (size_t i=0; i<setmap_->size_;++i) {
-                        if constexpr (std::is_void_v<V>) if (setmap_->arr_data_[i]==elem) { idx_ = i; return; }
-                        if constexpr (!std::is_void_v<V>) if (setmap_->arr_data_[i].first==elem) { idx_ = i; return; }
+                if (is_arr_) { //binary search through array to find element
+                    value_type* base = setmap_->arr_data_;
+                    value_type* start = base;
+                    value_type* last = start+setmap_->size_;
+                    value_type* mid;
+                    while (start!=last) {
+                        mid = start + (last - start) / 2;
+                        if constexpr (is_set) {
+                            if (*mid==elem)                 { idx_ = mid - base; return; }
+                            if (Compare{}(*mid,elem))       start = mid+1;
+                            else                            last  = mid;
+                        } 
+                        if constexpr (!is_set) {
+                            if (mid->first==elem)           { idx_ = mid - base; return; }
+                            if (Compare{}(mid->first,elem)) start = mid+1;
+                            else                            last  = mid;
+                        } 
                     }
-                    idx_ = setmap_->size_; return;
+                    idx_ = setmap_->size_; return; //not found, return end()
                 }
                 if (!set->contains(elem)) { current_=nullptr; return; }
                 if (current_->key()==elem) return;
@@ -498,10 +463,23 @@ public:
     /*checks whether a key is included in the set
         (no point in checking for a key/value pair in a map, just check for the key)*/
     bool contains(T elem) const {         
-        if (is_small()) {
-            for (size_t i=0; i<size_;++i) {
-                if constexpr (std::is_void_v<V>) if (arr_data_[i]==elem) return true;
-                if constexpr (!std::is_void_v<V>) if (arr_data_[i].first==elem) return true;
+        if (is_small()) { //binary search through array
+            value_type* base = arr_data_;
+            value_type* start = base;
+            value_type* last = start+size_;
+            value_type* mid;
+            while (start!=last) {
+                mid = start + (last - start) / 2;
+                if constexpr (is_set) {
+                    if (*mid==elem)                 { return true; }
+                    if (Compare{}(*mid,elem))       start = mid+1;
+                    else                            last  = mid;
+                } 
+                if constexpr (!is_set) {
+                    if (mid->first==elem)           { return true; }
+                    if (Compare{}(mid->first,elem)) start = mid+1;
+                    else                            last  = mid;
+                } 
             }
             return false;
         }
@@ -524,6 +502,7 @@ public:
 
     /*compares whether 2 setmaps contain all of the same elements*/
     bool operator==(setmap other) const {
+        //TODO just use this==other?
         if (size()!=other.size()) return false;
         for (auto elem : other) if (!contains(elem)) return false;
         return true;
@@ -576,7 +555,7 @@ public:
     setmap& insert(std::initializer_list<T> elems) {
         if (contains_all(elems)) return *this;
         setmap* newset = new (arena_->allocate<setmap>(1)) setmap(arena_,root_,nullptr,size_);
-        newset->insert_list(elems);
+        newset->insert_list(elems.begin(),elems.end()); //TODO array mode compatibility
         return *newset;
     }
 
@@ -586,10 +565,9 @@ public:
     template<typename U = V,  typename = std::enable_if_t<!std::is_void_v<U>>>
     const V operator[](T key) const {
         if (is_small()) {
-            for (size_t i=0; i<size_;++i) {
-                if (arr_data_[i].first==key) return arr_data_[i].second;
-            }
-            throw std::runtime_error("element not found in array");
+            auto it = iterator(this, key, nullptr);
+            if (it==end()) throw std::runtime_error("key not found in tree");
+            return it->second;
         }
         auto n = find_helper(root_, key);
         if (n==nullptr) throw std::runtime_error("key not found in tree");
@@ -599,10 +577,12 @@ public:
     /*inserts a key/value pair into the map. returns a new persistent copy with a new root element.*/
     template <typename U = V, typename = std::enable_if_t<!std::is_void_v<U>>>
     setmap& insert(T key, U value) {
+
         auto kv = std::pair(key,value);
         size_t newsize = size_+1;
         bool exists_already = false;
-        if (size()<ARR_LIMIT) {
+
+        if (size_<ARR_LIMIT) {
             value_type* new_arr = new (arena_->allocate<value_type>(newsize)) value_type[newsize];
             bool ins = false;
             for (auto si = arr_data_, di = new_arr, se = arr_data_+size_; si != se || !ins; ++di) {
@@ -629,7 +609,6 @@ public:
         }
         
         newsize-=contains(key); //cursed
-
 
         //von arr zu tree wechseln
         if (size_==ARR_LIMIT) {
@@ -662,13 +641,16 @@ public:
     setmap& insert(std::initializer_list<std::pair<T,V>> elems) {
         setmap* newmap = new (arena_->allocate<setmap>(1)) setmap(arena_,root_,arr_data_,size_);
         
-        if (size_+elems.size()<=ARR_LIMIT) {
-            for (auto elem : elems)
-                newmap = &(newmap->insert(elem.first,elem.second));
-            return *newmap;
+        auto ei = elems.begin(), ee = elems.end();
+
+        while (newmap->is_small()&&ei!=ee) {
+            newmap = &(newmap->insert((*ei).first,(*ei).second)); //TODO optimise for array mode
+            ++ei;
         }
 
-        newmap->insert_list(elems);
+        if (ei==ee) return *newmap;
+
+        newmap->insert_list(ei,ee);
         return *newmap;
     }
 
@@ -676,27 +658,27 @@ public:
 
     /*creates an xdot representation of the set/map and saves it in a specified file*/
     str save_dot() const {
-        if (is_small()) return "small mode";
+        if (is_small()) return "small mode"; 
         str where="/tmp/SMdot.tmp";
         std::ofstream out(where);
         out << "digraph setmap {\n";
         for (auto it = begin();it!=end();++it){
             auto n = it.current_;
             if (n->has_left()) {
-                if constexpr (std::is_void_v<V>) out << *it;
+                if constexpr (is_set) out << *it;
                 else out << "\""<<it->first<<": "<<it->second<<"\"";
                 out << " -> ";
                 auto l = n->left()->val();
-                if constexpr (std::is_void_v<V>) out << l;
+                if constexpr (is_set) out << l;
                 else out << "\""<<l.first<<": "<<l.second<<"\"";
                 out << ";\n";
             } 
             if (n->has_right()) {
-                if constexpr (std::is_void_v<V>) out << *it;
+                if constexpr (is_set) out << *it;
                 else out << "\""<<it->first<<": "<<it->second<<"\"";
                 out << " -> ";
                 auto r = n->right()->val();
-                if constexpr (std::is_void_v<V>) out << r;
+                if constexpr (is_set) out << r;
                 else out << "\""<<r.first<<": "<<r.second<<"\"";
                 out << ";\n";
             }
