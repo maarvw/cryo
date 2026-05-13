@@ -297,8 +297,10 @@ class setmap {
     }
 
 
-    /*inserts a list one element at a time, only copying each existing node once*/
+    /*inserts a list one element at a time, only copying each existing node once. assumes tree mode.*/
     void insert_list(std::forward_iterator auto vbegin, std::forward_iterator auto vend) {
+
+        assert(!is_small());// must not be used on array mode maps
 
         std::set<node*> changed = std::set<node*>(); //cursed hier auch std::sets zu nutzen aber naja
 
@@ -308,6 +310,42 @@ class setmap {
                 root_=insert_single(root_, *vi, &changed);
             } catch (const already_inserted_exception& e) {}
         }
+    }
+
+    /*inserts a list of elements into the set. only copies what is necessary and returns a new persistent copy with a new root element.*/
+    template <typename U = V, typename = std::enable_if_t<std::is_void_v<U>>>
+    setmap& insert_many_set(std::forward_iterator auto bi, std::forward_iterator auto ee) {
+        setmap* newset = new (arena_->allocate<setmap>(1)) setmap(arena_,root_,arr_data_,size_);
+        
+        auto ei = bi;
+
+        while (newset->is_small()&&ei!=ee) {
+            newset = &(newset->insert(*ei)); //TODO optimise for array mode, this way wastes some memory
+            ++ei;
+        }
+
+        if (ei==ee) return *newset;
+
+        newset->insert_list(ei,ee);
+        return *newset;
+    }
+
+    /*inserts a list of key/value pairs into the map. only copies what is necessary and returns a new persistent copy with a new root element.*/
+    template <typename U = V, typename = std::enable_if_t<!std::is_void_v<U>>>
+    setmap& insert_many_map(std::forward_iterator auto bi, std::forward_iterator auto ee) {
+        setmap* newmap = new (arena_->allocate<setmap>(1)) setmap(arena_,root_,arr_data_,size_);
+        
+        auto ei = bi;
+
+        while (newmap->is_small()&&ei!=ee) {
+            newmap = &(newmap->insert((*ei).first,(*ei).second)); //TODO optimise for array mode, this way wastes some memory
+            ++ei;
+        }
+
+        if (ei==ee) return *newmap;
+
+        newmap->insert_list(ei,ee);
+        return *newmap;
     }
 
 public:
@@ -511,6 +549,11 @@ public:
     /*compares whether 2 setmaps do not contain all of the same elements*/
     bool operator!=(setmap other) const { return !(*this==other); }
 
+    setmap& insert(std::forward_iterator auto bi, std::forward_iterator auto ee) {
+        if constexpr (is_set) return insert_many_set(bi, ee);
+        else return insert_many_map(bi,ee);
+    }
+
 
     //set specific functions---------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -550,13 +593,12 @@ public:
         return *newset;
     }
 
+
+
     /*inserts a list of elements into the set. only copies what is necessary and returns a new persistent copy with a new root element.*/
     template <typename U = V, typename = std::enable_if_t<std::is_void_v<U>>>
     setmap& insert(std::initializer_list<T> elems) {
-        if (contains_all(elems)) return *this;
-        setmap* newset = new (arena_->allocate<setmap>(1)) setmap(arena_,root_,nullptr,size_);
-        newset->insert_list(elems.begin(),elems.end()); //TODO array mode compatibility
-        return *newset;
+        return insert_many_set(elems.begin(), elems.end());
     }
 
     //map specific functions----------------------------------------------------------------------------------------------------------------------
@@ -566,7 +608,7 @@ public:
     const V operator[](T key) const {
         if (is_small()) {
             auto it = iterator(this, key, nullptr);
-            if (it==end()) throw std::runtime_error("key not found in tree");
+            if (it==end()) throw std::runtime_error("key not found in array");
             return it->second;
         }
         auto n = find_helper(root_, key);
@@ -639,19 +681,7 @@ public:
     /*inserts a list of key/value pairs into the map. only copies what is necessary and returns a new persistent copy with a new root element.*/
     template <typename U = V, typename = std::enable_if_t<!std::is_void_v<U>>>
     setmap& insert(std::initializer_list<std::pair<T,V>> elems) {
-        setmap* newmap = new (arena_->allocate<setmap>(1)) setmap(arena_,root_,arr_data_,size_);
-        
-        auto ei = elems.begin(), ee = elems.end();
-
-        while (newmap->is_small()&&ei!=ee) {
-            newmap = &(newmap->insert((*ei).first,(*ei).second)); //TODO optimise for array mode
-            ++ei;
-        }
-
-        if (ei==ee) return *newmap;
-
-        newmap->insert_list(ei,ee);
-        return *newmap;
+        return insert_many_map(elems.begin(), elems.end());
     }
 
     using str = std::string;
