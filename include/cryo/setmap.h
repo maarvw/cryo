@@ -120,14 +120,14 @@ class setmap {
         functionally a duplicate of the private function in node*/
     T key(value_type k) {
         if constexpr (is_set) return k;
-        else                             return k.first;
+        else                  return k.first;
     }
 
     //balancing stuff -----------------------------------------------------------------------------------------------------------------------
 
     /*rotates the node and its right child. should ONLY be called during the insertion process
-        for nodes where the right node should just have been created and are not in use by any
-        previous states of the tree so as not to break the traversal for those other trees */
+      for nodes where the right node should just have been created and are not in use by any
+      previous states of the tree so as not to break the traversal for those other trees */
     node* left_rotate(node* n) {
         node* r = n->right();  
         node* rl = r->left();
@@ -137,8 +137,8 @@ class setmap {
     }
 
     /*rotates the node and its left child. should ONLY be called during the insertion process
-        for nodes where the left node should just have been created and are not in use by any
-        previous states of the tree so as not to break the traversal for those other trees */
+      for nodes where the left node should just have been created and are not in use by any
+      previous states of the tree so as not to break the traversal for those other trees */
     node* right_rotate(node* n) {
         node* l = n->left();  
         node* lr = l->right();
@@ -148,8 +148,8 @@ class setmap {
     }
 
     /*performs a balancing operation on the node, rotating either right or left if the node
-        is unbalanced. does not perform copies, so must be used very carefully to not break
-        traversal for different persistent states.*/
+      is unbalanced. does not perform copies, so must be used very carefully to not break
+      traversal for different persistent states.*/
     node* balance_node(node* n) {
         int bal = n->balance();
         if (bal<-1) {
@@ -223,7 +223,7 @@ class setmap {
     bool contains_helper(node* n, T elem) const { //could be combined with find_helper to avoid code duplication
         if (n==nullptr)                 return false;
         if (n->key()==elem)             return true;
-        if (!Compare{}(n->key(),elem))  return contains_helper(n->left(), elem);
+        if (!Compare{}(n->key(),elem))  return contains_helper(n->left(),  elem);
         else                            return contains_helper(n->right(), elem);
     }
 
@@ -237,7 +237,7 @@ class setmap {
             while (start!=last) {
                 mid = start+(last-start)/2;
                 if (*mid==elem) return true;
-                if (*mid<elem)  start = mid+sizeof(value_type);
+                if (*mid<elem)  start = mid+1;
                 else            last  = mid;
             }
             throw std::runtime_error("element not found in array");
@@ -260,7 +260,7 @@ class setmap {
     }
 
     /*helper function for insert_list, handling the individual inserts. only allocates
-        new copies of nodes that havent already been copied.*/
+      new copies of nodes that havent already been copied.*/
     node* insert_single(node* n, value_type val, std::set<node*>* changed) {
         node* newnode;
         if (n==nullptr) {
@@ -621,10 +621,9 @@ public:
     setmap& insert(T key, U value) {
 
         auto kv = std::pair(key,value);
-        size_t newsize = size_+1;
-        bool exists_already = false;
+        size_t newsize = size_+!contains(key); //cursed 
 
-        if (size_<ARR_LIMIT) {
+        if (newsize<=ARR_LIMIT) {
             value_type* new_arr = new (arena_->allocate<value_type>(newsize)) value_type[newsize];
             bool ins = false;
             for (auto si = arr_data_, di = new_arr, se = arr_data_+size_; si != se || !ins; ++di) {
@@ -635,7 +634,6 @@ public:
                             return *this;
                         }
                         else {
-                            exists_already=true;
                             *di = kv, ins = true, ++si;
                             continue;
                         }
@@ -646,28 +644,35 @@ public:
                 else
                     *di = *si++;
             }
-            setmap* newmap = new (arena_->allocate<setmap>(1)) setmap(arena_,nullptr,new_arr,newsize-exists_already);
+            setmap* newmap = new (arena_->allocate<setmap>(1)) setmap(arena_,nullptr,new_arr,newsize);
             return *newmap;
         }
         
-        newsize-=contains(key); //cursed
 
-        //von arr zu tree wechseln
-        if (size_==ARR_LIMIT) {
+        //switch from arr to tree
+        if (is_small()&&newsize>ARR_LIMIT) {
             node* newroot = nullptr;
             for (auto si = arr_data_, se = arr_data_+size_; si!=se; ++si) {
                 newroot = insert_helper(newroot, *si);
             }
-            newroot = insert_helper(newroot, kv);
+            //newroot = insert_helper(newroot, kv);
+            try {
+                newroot = insert_helper(newroot, kv);
+            } catch (const already_inserted_exception&) {
+                return *this;
+            }
             setmap* newmap = new (arena_->allocate<setmap>(1)) setmap(arena_, newroot, nullptr, newsize);
             return *newmap;
         }
 
+        //currently dead code
         if (root_==nullptr) {
             node* newnode = new (arena_->allocate<node>(1)) node(kv);
             setmap* newmap = new (arena_->allocate<setmap>(1)) setmap(arena_, newnode, nullptr, 1);
             return *newmap;
         }
+
+
         node* newnode;
         try {
             newnode = insert_helper(root_, kv);
