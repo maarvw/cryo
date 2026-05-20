@@ -52,8 +52,8 @@ class setmap {
 
         /*destructor traversing the child nodes, necessary for non-trivial types*/
         ~node() {
-            if (has_left())  left_->~node();
-            if (has_right()) right_->~node();
+            //if (has_left())  left_->~node();
+            //if (has_right()) right_->~node();
         }
 
         value_type& val() { return val_; }
@@ -367,9 +367,23 @@ public:
     setmap(std::initializer_list<value_type> elems) :
         setmap(elems, new arena) {}
 
+    /*copy constructor*/
+    setmap(const setmap& other) :
+        root_(other.root_), arr_data_(other.arr_data_), 
+        arena_(other.arena_), size_(other.size_) {}
+
+    /*copy assignment operator*/
+    setmap& operator=(const setmap& other) {
+        root_     = other.root_;
+        arr_data_ = other.arr_data_;
+        arena_    = other.arena_;
+        size_     = other.size_;
+        return *this;
+    }
+
     /*standard destructor*/
     ~setmap() {
-        if (root_) root_->~node();
+        //if (root_) root_->~node();
     }
 
     //public functions (both modes)------------------------------------------------------------------------------------------------------------------------------
@@ -566,7 +580,7 @@ public:
             bool ins = false;
             for (auto si = arr_data_, di = new_arr, se = arr_data_+size_; si != se || !ins; ++di) {
                 if (si != se && elem == *si) { // already here
-                    arena_->deallocate(sizeof(T)*(size_+1));
+                    arena_->deallocate(sizeof(T)*(newsize));
                     return *this;
                 }
                 if (!ins && (si == se || elem < (*si)))
@@ -618,12 +632,13 @@ public:
 
     /*inserts a key/value pair into the map. returns a new persistent copy with a new root element.*/
     template <typename U = V, typename = std::enable_if_t<!std::is_void_v<U>>>
-    setmap& insert(T key, U value) {
+    setmap insert(T key, U value) {
 
         auto kv = std::pair(key,value);
-        size_t newsize = size_+!contains(key); //cursed 
+        size_t newsize = size_+1;//!contains(key); //cursed 
 
-        if (newsize<=ARR_LIMIT) {
+        //staying in array mode
+        if (newsize<=ARR_LIMIT&&is_small()) {
             value_type* new_arr = new (arena_->allocate<value_type>(newsize)) value_type[newsize];
             bool ins = false;
             for (auto si = arr_data_, di = new_arr, se = arr_data_+size_; si != se || !ins; ++di) {
@@ -635,6 +650,8 @@ public:
                         }
                         else {
                             *di = kv, ins = true, ++si;
+                            arena_->deallocate(sizeof(value_type)); //dealloc last elem
+                            --newsize;
                             continue;
                         }
                     }
@@ -644,8 +661,9 @@ public:
                 else
                     *di = *si++;
             }
-            setmap* newmap = new (arena_->allocate<setmap>(1)) setmap(arena_,nullptr,new_arr,newsize);
-            return *newmap;
+            return setmap(arena_,nullptr,new_arr,newsize);
+            // setmap* newmap = new (arena_->allocate<setmap>(1)) setmap(arena_,nullptr,new_arr,newsize);
+            // return *newmap;
         }
         
 
@@ -658,29 +676,32 @@ public:
             //newroot = insert_helper(newroot, kv);
             try {
                 newroot = insert_helper(newroot, kv);
-            } catch (const already_inserted_exception&) {
-                return *this;
-            }
-            setmap* newmap = new (arena_->allocate<setmap>(1)) setmap(arena_, newroot, nullptr, newsize);
-            return *newmap;
+            } catch (const already_inserted_exception&) { 
+                --newsize; //if new element not actually new then switch to tree anyway, would waste memory otherwise
+            } 
+            return setmap(arena_, newroot, nullptr, newsize);
+            // setmap* newmap = new (arena_->allocate<setmap>(1)) setmap(arena_, newroot, nullptr, newsize);
+            // return *newmap;
         }
 
         //currently dead code
         if (root_==nullptr) {
             node* newnode = new (arena_->allocate<node>(1)) node(kv);
-            setmap* newmap = new (arena_->allocate<setmap>(1)) setmap(arena_, newnode, nullptr, 1);
-            return *newmap;
+            return setmap(arena_, newnode, nullptr, 1);
+            // setmap* newmap = new (arena_->allocate<setmap>(1)) setmap(arena_, newnode, nullptr, 1);
+            // return *newmap;
         }
 
-
+        //normal tree mode insert
         node* newnode;
         try {
             newnode = insert_helper(root_, kv);
         } catch (const already_inserted_exception&) {
             return *this;
         }
-        setmap* newmap = new (arena_->allocate<setmap>(1)) setmap(arena_,newnode,nullptr,newsize);
-        return *newmap;
+        return setmap(arena_,newnode,nullptr,newsize);
+        // setmap* newmap = new (arena_->allocate<setmap>(1)) setmap(arena_,newnode,nullptr,newsize);
+        // return *newmap;
     }
 
     /*inserts a list of key/value pairs into the map. only copies what is necessary and returns a new persistent copy with a new root element.*/
