@@ -19,7 +19,6 @@ using arena = fe::Arena;
 
 namespace cryo {
 
-class already_inserted_exception : public std::exception {};
 
 
 /*persistent immutable set/map implementation using self-balancing binary trees.
@@ -215,19 +214,30 @@ class setmap {
 
     /*inserts a new node into the tree, also performing balancing operations.
         returns the newly created and balanced node (initial call returns new root)*/
-    node* insert_helper(node* n, value_type elem) {
+    node* insert_helper(node* n, value_type elem, bool& inc) {
         if (n==nullptr) return new (arena_->allocate<node>(1)) node(elem);
 
-        if (n->key()==key(elem)) {
-            if constexpr (is_set) throw already_inserted_exception();
-            else if (n->val().second==elem.second) throw already_inserted_exception();
+        if (n->key()==key(elem)) { //key already exists
+            inc = false; //no increasing size
+            if constexpr (is_set) return n; 
+            else if (n->val().second==elem.second) return n; 
 
             //map case: insert new value for existing key in the middle of the tree
             return new (arena_->allocate<node>(1)) node(n->left(), n->right(), elem);
         }
 
-        if (!Compare{}(key(elem),n->key()))    return balance_node(new (arena_->allocate<node>(1)) node(n->left(), insert_helper(n->right(), elem), n->val()));
-        else                                      return balance_node(new (arena_->allocate<node>(1)) node(insert_helper(n->left(), elem), n->right(), n->val()));
+        node *l, *r;
+        if (!Compare{}(key(elem),n->key())) {
+            l = n->left();
+            r = insert_helper(n->right(), elem, inc);
+        }
+        else {
+            l = insert_helper(n->left(), elem, inc);
+            r = n->right();
+        }
+
+        if (l==n->left()&&r==n->right()) return n; //if both children are the same dont create new node
+        else return balance_node(new (arena_->allocate<node>(1)) node(l, r, n->val()));
     }
 
     /*recursive helper for contains check*/
@@ -271,7 +281,7 @@ class setmap {
     }
 
     /*helper function for insert_list, handling the individual inserts. only allocates
-      new copies of nodes that havent already been copied abd mutates already copied ones in-place.*/
+      new copies of nodes that havent already been copied and mutates already copied ones in-place.*/
     node* insert_single_tree(node* n, value_type val, std::set<node*>* changed) {
         node* newnode;
         if (n==nullptr) {
@@ -283,8 +293,8 @@ class setmap {
 
         if (n->key()==key(val)) {
             --size_;
-            if constexpr (is_set) throw already_inserted_exception();
-            else if (n->val().second==val.second) throw already_inserted_exception(); //or return n?
+            if constexpr (is_set) return n; 
+            else if (n->val().second==val.second) return n; 
             //map case: insert new value for existing key in the middle of the tree
             newnode = change_or_copy(n, changed);
             newnode->set_val(val);
@@ -292,16 +302,20 @@ class setmap {
             return newnode;
         }
 
+        newnode = change_or_copy(n, changed);
+        node *l, *r;
+
         if (Compare{}(n->key(),key(val))) {
-            newnode = change_or_copy(n, changed);
-            newnode->set_left(n->left());
-            newnode->set_right(insert_single_tree(n->right(), val, changed));
+            l = n->left(); 
+            r = insert_single_tree(n->right(), val, changed); 
         }
         else {
-            newnode = change_or_copy(n, changed);
-            newnode->set_left(insert_single_tree(n->left(), val, changed));
-            newnode->set_right(n->right());
+            l = insert_single_tree(n->left(), val, changed);
+            r = n->right();
         }
+
+        newnode->set_left(l);
+        newnode->set_right(r);
 
         changed->insert(newnode);
         return balance_node(newnode);
@@ -317,9 +331,7 @@ class setmap {
 
         for (auto vi=vbegin;vi!=vend;++vi) {
             if (is_set&&contains(*vi)) continue;
-            try {
-                root_=insert_single_tree(root_, *vi, &changed);
-            } catch (const already_inserted_exception& e) {}
+            root_=insert_single_tree(root_, *vi, &changed);
         }
     }
 
@@ -610,11 +622,8 @@ public:
             return *newset;
         }
         node* newnode;
-        try { 
-            newnode = insert_helper(root_, elem);
-        } catch (const already_inserted_exception&) {
-            return *this;
-        }
+        newnode = insert_helper(root_, elem,nullptr);
+        if (newnode==root_) return *this; //if elem already existed
         setmap* newset = new (arena_->allocate<setmap>(1)) setmap(arena_,newnode, nullptr, size_+1);
         return *newset;
     }
@@ -694,11 +703,10 @@ public:
 
         //normal tree mode insert
         node* newnode;
-        try {
-            newnode = insert_helper(root_, kv);
-        } catch (const already_inserted_exception&) {
-            return *this;
-        }
+        bool inc=true; //increase size or not
+        newnode = insert_helper(root_, kv, inc);
+        if (newnode==root_) return *this; //if nothing changed
+        if (!inc) --newsize; //if key already existed but value was changed
         return setmap(arena_,newnode,nullptr,newsize);
     }
 
