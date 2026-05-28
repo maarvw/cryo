@@ -355,20 +355,56 @@ class setmap {
 
     /*inserts a list of key/value pairs into the map. only copies what is necessary and returns a new persistent copy with a new root element.*/
     template <typename U = V, typename = std::enable_if_t<!std::is_void_v<U>>>
-    setmap insert_many_map(std::forward_iterator auto bi, std::forward_iterator auto ee) {
-        setmap newmap = setmap(arena_,root_,arr_data_,size_);
-        
-        auto ei = bi;
+    setmap insert_many_map(std::forward_iterator auto eb, std::forward_iterator auto ee) {
 
-        while (newmap.is_small()&&ei!=ee) {
-            newmap = newmap.insert(ei->first,ei->second); //TODO optimise for array mode, this way wastes some memory
-            ++ei;
+        if (!is_small()) {
+            setmap newmap =  setmap(arena_,root_,nullptr,size_);
+            newmap.insert_list(eb, ee);
+            return newmap;
+        }
+        
+        auto ei = eb;
+
+        std::sort(eb,ee);
+
+
+        value_type* newarr = new (arena_->allocate<value_type>(ARR_LIMIT)) value_type[ARR_LIMIT];
+        size_t newsize = size_;
+
+        //combine old arr and new elements into new arr
+        for (auto ai = arr_data_, ae = arr_data_+size_, ni = newarr; newsize<ARR_LIMIT;) {
+            if (ei==ee) { //end of new elements, just insert the rest of old array
+                while (newsize<ARR_LIMIT && ai!=ae) {
+                    *ni=*ai;
+                    ++ni, ++ai;
+                }
+                break;
+            }
+            if (ai==ae) { //end of old array, just insert rest of new elements
+                while (newsize<ARR_LIMIT && ei!=ee) {
+                    *ni=*ei;
+                    ++ni, ++ei;
+                }
+                break;
+            }
+            if (ai->first == ei->first) { ++ei; continue; }
+            if (ai->first <  ei->first) { *ni = *ai; ++ai; ++ni; ++newsize; }
+            else                        { *ni = *ei; ++ei; ++ni; ++newsize; }
         }
 
-        if (ei==ee) return newmap;
+        
+        //check if limit reached, then switch to tree
+        if (newsize==ARR_LIMIT) {
+            node* newroot = build_balanced(newarr, 0, newsize-1);
+            setmap newmap = setmap(arena_,newroot,nullptr,newsize);
+            newmap.insert_list(ei, ee);
+            return newmap;
+        }
+        
+        //deallocate unused array space
+        arena_->deallocate(sizeof(value_type)*(ARR_LIMIT-newsize));
 
-        newmap.insert_list(ei,ee);
-        return newmap;
+        return setmap(arena_, nullptr, newarr, newsize);
     }
 
 public:
