@@ -335,77 +335,14 @@ class setmap {
         }
     }
 
-    /*inserts a list of elements into the set. only copies what is necessary and returns a new persistent copy with a new root element.*/
-    template <typename U = V, typename = std::enable_if_t<std::is_void_v<U>>>
-    setmap insert_many_set(std::forward_iterator auto bi, std::forward_iterator auto ee) {
-        setmap newset = setmap(arena_,root_,arr_data_,size_);
-        
-        auto ei = bi;
-
-        while (newset.is_small()&&ei!=ee) {
-            newset = &(newset.insert(*ei)); //TODO optimise for array mode, this way wastes some memory
-            ++ei;
-        }
-
-        if (ei==ee) return newset;
-
-        newset.insert_list(ei,ee);
-        return newset;
+    /*creates a (sorted) std::vector from the elements in the setmap*/
+    std::vector<value_type> to_vec() {
+        std::vector<value_type> v;
+        auto it = begin(), e=end();
+        while (it!=e) { v.push_back(*it); ++it; }
+        return v;
     }
 
-    /*inserts a list of key/value pairs into the map. only copies what is necessary and returns a new persistent copy with a new root element.*/
-    template <typename U = V, typename = std::enable_if_t<!std::is_void_v<U>>>
-    setmap insert_many_map(std::forward_iterator auto eb, std::forward_iterator auto ee) {
-
-        if (!is_small()) {
-            setmap newmap =  setmap(arena_,root_,nullptr,size_);
-            newmap.insert_list(eb, ee);
-            return newmap;
-        }
-        
-        auto ei = eb;
-
-        std::sort(eb,ee);
-
-
-        value_type* newarr = new (arena_->allocate<value_type>(ARR_LIMIT)) value_type[ARR_LIMIT];
-        size_t newsize = size_;
-
-        //combine old arr and new elements into new arr
-        for (auto ai = arr_data_, ae = arr_data_+size_, ni = newarr; newsize<ARR_LIMIT;) {
-            if (ei==ee) { //end of new elements, just insert the rest of old array
-                while (newsize<ARR_LIMIT && ai!=ae) {
-                    *ni=*ai;
-                    ++ni, ++ai;
-                }
-                break;
-            }
-            if (ai==ae) { //end of old array, just insert rest of new elements
-                while (newsize<ARR_LIMIT && ei!=ee) {
-                    *ni=*ei;
-                    ++ni, ++ei;
-                }
-                break;
-            }
-            if (ai->first == ei->first) { ++ei; continue; }
-            if (ai->first <  ei->first) { *ni = *ai; ++ai; ++ni; ++newsize; }
-            else                        { *ni = *ei; ++ei; ++ni; ++newsize; }
-        }
-
-        
-        //check if limit reached, then switch to tree
-        if (newsize==ARR_LIMIT) {
-            node* newroot = build_balanced(newarr, 0, newsize-1);
-            setmap newmap = setmap(arena_,newroot,nullptr,newsize);
-            newmap.insert_list(ei, ee);
-            return newmap;
-        }
-        
-        //deallocate unused array space
-        arena_->deallocate(sizeof(value_type)*(ARR_LIMIT-newsize));
-
-        return setmap(arena_, nullptr, newarr, newsize);
-    }
 
 public:
 
@@ -623,9 +560,62 @@ public:
     /*compares whether 2 setmaps do not contain all of the same elements*/
     bool operator!=(setmap other) const { return !(*this==other); }
 
-    setmap insert(std::forward_iterator auto bi, std::forward_iterator auto ee) {
-        if constexpr (is_set) return insert_many_set(bi, ee);
-        else return insert_many_map(bi,ee);
+    /*inserts a batch of elements between the 2 iterators*/
+    setmap insert(std::forward_iterator auto eb, std::forward_iterator auto ee, bool sort_elems=true ) {
+        if (!is_small()) {
+            setmap newmap =  setmap(arena_,root_,nullptr,size_);
+            newmap.insert_list(eb, ee);
+            return newmap;
+        }
+        
+        auto ei = eb;
+
+        if (sort_elems) std::sort(eb,ee);
+
+
+        value_type* newarr = new (arena_->allocate<value_type>(ARR_LIMIT)) value_type[ARR_LIMIT];
+        size_t newsize = size_;
+
+        //combine old arr and new elements into new arr
+        for (auto ai = arr_data_, ae = arr_data_+size_, ni = newarr; newsize<ARR_LIMIT;) {
+            if (ei==ee) { //end of new elements, just insert the rest of old array
+                while (newsize<ARR_LIMIT && ai!=ae) {
+                    *ni=*ai;
+                    ++ni, ++ai;
+                }
+                break;
+            }
+            if (ai==ae) { //end of old array, just insert rest of new elements
+                while (newsize<ARR_LIMIT && ei!=ee) {
+                    *ni=*ei;
+                    ++ni, ++ei;
+                }
+                break;
+            }
+            if (ai->first == ei->first) { ++ei; continue; }
+            if (ai->first <  ei->first) { *ni = *ai; ++ai; ++ni; ++newsize; }
+            else                        { *ni = *ei; ++ei; ++ni; ++newsize; }
+        }
+
+        
+        //check if limit reached, then switch to tree
+        if (newsize==ARR_LIMIT) {
+            node* newroot = build_balanced(newarr, 0, newsize-1);
+            setmap newmap = setmap(arena_,newroot,nullptr,newsize);
+            newmap.insert_list(ei, ee);
+            return newmap;
+        }
+        
+        //deallocate unused array space
+        arena_->deallocate(sizeof(value_type)*(ARR_LIMIT-newsize));
+
+        return setmap(arena_, nullptr, newarr, newsize);
+    }
+
+    /*returns a new setmap containing the elements of both setmaps. in map mode, keys in 'this' are overwritten by 'other'*/
+    setmap merge(setmap other) {
+        auto v = other.to_vec();
+        return insert(v.begin(), v.end(), false);
     }
 
 
@@ -669,14 +659,14 @@ public:
     /*inserts a list of elements into the set. only copies what is necessary and returns a new persistent copy with a new root element.*/
     template <typename U = V, typename = std::enable_if_t<std::is_void_v<U>>>
     setmap& insert(std::initializer_list<T> elems) {
-        return insert_many_set(elems.begin(), elems.end());
+        return insert(elems.begin(), elems.end());
     }
 
     //map specific functions----------------------------------------------------------------------------------------------------------------------
 
     /*returns the value for a given key. throws exception if the key does not exist in this map*/
     template<typename U = V,  typename = std::enable_if_t<!std::is_void_v<U>>>
-    const V operator[](T key) const {
+    const V& operator[](T key) const {
         if (is_small()) {
             auto it = iterator(this, key, nullptr);
             if (it==end()) throw std::runtime_error("key not found in array");
@@ -749,7 +739,7 @@ public:
     /*inserts a list of key/value pairs into the map. only copies what is necessary and returns a new persistent copy with a new root element.*/
     template <typename U = V, typename = std::enable_if_t<!std::is_void_v<U>>>
     setmap insert(std::initializer_list<std::pair<T,V>> elems) {
-        return insert_many_map(elems.begin(), elems.end());
+        return insert(elems.begin(), elems.end());
     }
 
     /*for remapping a list of keys already in the map*/
