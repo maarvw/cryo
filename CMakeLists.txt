@@ -14,12 +14,16 @@ endif()
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CRYO_FE "../fe" CACHE PATH "location of FE")
+# fe provides <fe/arena.h>. Pull in cryo's own copy, but reuse a parent
+# project's fe target if one already exists (diamond dependency).
+if(NOT TARGET fe)
+    add_subdirectory(submodules/fe EXCLUDE_FROM_ALL)
+endif()
 
 add_library(cryo INTERFACE)
+target_link_libraries(cryo INTERFACE $<BUILD_INTERFACE:fe>)
 target_include_directories(cryo
     INTERFACE
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/${CRYO_FE}/include>
         $<INSTALL_INTERFACE:include> # TODO
 )
 
@@ -79,6 +83,12 @@ install(
     FILES_MATCHING PATTERN "*.h"
 )
 
-#if(BUILD_TESTING)
-#    add_subdirectory(tests)
-#endif()
+if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+    include(CTest)
+    if(BUILD_TESTING)
+        if(NOT TARGET doctest::doctest)
+            add_subdirectory(submodules/fe/submodules/doctest)
+        endif()
+        add_subdirectory(tests)
+    endif()
+endif()

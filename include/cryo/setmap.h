@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../submodules/fe/include/fe/arena.h"
+#include <fe/arena.h>
 #include <cstddef>
 #include <cstring>
 #include <algorithm>

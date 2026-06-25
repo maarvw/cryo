@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../external/fe/include/fe/arena.h"
+#include <fe/arena.h>
 #include <cstddef>
 #include <initializer_list>
 #include <iostream> //löschen wenn kein debug mehr nötig
@@ -363,9 +363,9 @@ public:
             bool operator>=(const iterator& other) const { return this->current_->key()>=other->current_->key(); };
         };
         /*returns an iterator to the first and smallest element in the tree*/
-        iterator begin() const { return iterator(this); }
+        iterator begin() const { return iterator(const_cast<setmap*>(this)); }
         /*returns an iterator that acts as a sentinel after the last element of the tree*/
-        iterator end() const { return iterator(this, nullptr); }
+        iterator end() const { return iterator(const_cast<setmap*>(this), nullptr); }
 
         /*the amount of elements currently in the tree*/
         size_t size() const { return size_; }
@@ -385,7 +385,7 @@ public:
 
         /*returns an iterator to the node containing elem.
           returns end() if elem isn't in the set.*/
-        iterator find(T elem) const { return iterator(this, elem); }
+        iterator find(T elem) const { return iterator(const_cast<setmap*>(this), elem); }
 
         /*compares whether 2 setmaps contain all of the same elements*/
         bool operator==(setmap other) const {

@@ -8,5 +8,5 @@ target_link_libraries(cryo-test
         cryo
         doctest::doctest
 )
-include(${CRYO_FE}/external/doctest/scripts/cmake/doctest.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/../submodules/fe/submodules/doctest/scripts/cmake/doctest.cmake)
 doctest_discover_tests(cryo-test)

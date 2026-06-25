@@ -1,0 +1,3 @@
+[submodule "submodules/fe"]
+	path = submodules/fe
+	url = ../../leissa/fe.git

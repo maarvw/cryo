@@ -7,7 +7,7 @@
 #include <ostream>
 #include <stdexcept>
 #include <iostream>
-#include "../../external/fe/include/fe/arena.h"
+#include <fe/arena.h>
 using arena = fe::Arena;
 namespace cryo {
 /*vector implementation using radix balanced tree with 
