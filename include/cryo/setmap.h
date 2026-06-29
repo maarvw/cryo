@@ -104,13 +104,13 @@ class setmap {
         node* left_ = nullptr;
         node* right_ = nullptr;
         value_type val_;
-        size_t height_ = 1;
-        size_t balance_ = 0;
+        int height_ = 1;
+        int balance_ = 0;
 
         /*recalcalates both the height and balance. automatically called when left or right is modified.*/
         void recalculate_balance() {
-            size_t rh = (right()!=nullptr?right()->height():0);
-            size_t lh = (left()!=nullptr?left()->height():0);
+            int rh = (right()!=nullptr?right()->height():0);
+            int lh = (left()!=nullptr?left()->height():0);
             height_=1+std::max(lh,rh);
             balance_=rh-lh;
         }
