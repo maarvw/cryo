@@ -12,6 +12,7 @@ namespace cryo {
     
 template<typename K, typename V = void, size_t ARR_LIM = 16, typename Compare = std::less<K>>
 class setmaps {
+    public:
     using arena = fe::Arena;
     
     using value_type = std::conditional_t<std::is_void_v<V>, K, std::pair<K, V>>;
@@ -27,7 +28,7 @@ class setmaps {
         else                    { return val.first; }
     }
 
-    class node {
+    struct node {
         node* left_;
         node* right_;
         value_type val_;
@@ -44,15 +45,23 @@ class setmaps {
                 recalculate_balance();
         }
 
-        node* left()    const  { return left_;  }
+        node* left()     const { return left_;  }
         node* right()    const { return right_; }
         value_type val() const { return val_;   }
+        K get_key()      const { return key(val_); }
+
+        size_t size() const {
+            size_t s = 1;
+            if (has_left() ) s += left_ ->size();
+            if (has_right()) s += right_->size();
+            return s;
+        }
 
         void set_left (node* n) { left_  = n; recalculate_balance(); }
         void set_right(node* n) { right_ = n; recalculate_balance(); }
 
-        bool has_left () { return left_  != nullptr; }
-        bool has_right() { return right_ != nullptr; }
+        bool has_left () const { return left_  != nullptr; }
+        bool has_right() const { return right_ != nullptr; }
 
         void recalculate_balance() {
             int rh = (right_ != nullptr ? right_->height_ : 0);
@@ -86,17 +95,19 @@ class setmaps {
             return n;
         }
 
-        bool contains(value_type val) {
-            if (key(val) == key(val_)) return true;
-            if (key(val) <  key(val_)) {
+        bool contains(K val) {
+            if (val == key(val_)) return true;
+            if (val <  key(val_)) {
                 if (has_left()) return false;
                 else            return left_->contains(val);
             }
-            if (key(val) >  key(val_)) {
+            if (val >  key(val_)) {
                 if (has_right()) return false;
                 else             return right_->contains(val);
             }
         }
+
+       
     };
 
     node* build_balanced(value_type* sorted, size_t lo=0, size_t hi=ARR_LIM-1) {
@@ -108,13 +119,14 @@ class setmaps {
         return n;
     }
 
-    class arr {
+    struct arr {
         size_t size_ = 0;
-        value_type arr_[];
+        value_type* arr_;
 
         constexpr arr() noexcept = default;
         constexpr arr(size_t size) noexcept 
-            : size_(size) {}
+            : size_(size)
+            , arr_(new value_type[size]) {}
 
         constexpr value_type* begin() noexcept { return arr_; }
         constexpr value_type* end() noexcept { return arr_ + size_; }
@@ -141,9 +153,18 @@ class setmaps {
         return make_node(nullptr, nullptr, val);
     }
 
+    std::pair<value_type*, arena::State> alloc_uniq(value_type v) {
+        auto bytes = sizeof(value_type);
+        auto state = arena_.state();
+        auto buff = arena_.allocate(bytes, alignof(value_type));
+        auto data = new (buff) value_type();
+        *data = v;
+        return {data, state};
+    }
+
 
     class setmap {
-        
+        public:
         uintptr_t data_ = 0;
 
         enum class Tag : uintptr_t { Null, Uniq, Array, Node };
@@ -154,17 +175,17 @@ class setmaps {
             return std::bit_cast<T*>(data_ & (uintptr_t(-2) << uintptr_t(2)));
         }
 
-        constexpr value_type* isa_uniq() const noexcept { return tag() == Tag::Uniq ? ptr<value_type>() : nullptr; }
-        constexpr arr*        isa_data() const noexcept { return tag() == Tag::Data ? ptr<arr       >() : nullptr; }
-        constexpr node*       isa_node() const noexcept { return tag() == Tag::Node ? ptr<node      >() : nullptr; }
+        constexpr value_type* isa_uniq() const noexcept { return tag() == Tag::Uniq  ? ptr<value_type>() : nullptr; }
+        constexpr arr*        isa_arr()  const noexcept { return tag() == Tag::Array ? ptr<arr       >() : nullptr; }
+        constexpr node*       isa_node() const noexcept { return tag() == Tag::Node  ? ptr<node      >() : nullptr; }
 
         constexpr setmap(const setmap&) noexcept = default;
         constexpr setmap(setmap&&) noexcept      = default;
         constexpr setmap() noexcept              = default; ///< Null setmap
-        constexpr setmap(value_type d) noexcept
-            : data_(uintptr_t(&d) | uintptr_t(Tag::Uniq)) {} ///< Uniq setmap.
+        constexpr setmap(value_type* d) noexcept
+            : data_(uintptr_t(d) | uintptr_t(Tag::Uniq)) {} ///< Uniq setmap.
         constexpr setmap(const arr* data) noexcept
-            : data_(uintptr_t(data) | uintptr_t(Tag::Data)) {} ///< Array setmap.
+            : data_(uintptr_t(data) | uintptr_t(Tag::Array)) {} ///< Array setmap.
         constexpr setmap(node* node) noexcept
             : data_(uintptr_t(node) | uintptr_t(Tag::Node)) {} ///< Node setmap.
 
@@ -172,8 +193,8 @@ class setmaps {
 
         constexpr size_t size() const noexcept {
             if (isa_uniq()) return 1;
-            if (auto d = isa_data()) return d->size;
-            if (auto n = isa_node()) return n->size;
+            if (auto d = isa_arr()) return d->size_;
+            if (auto n = isa_node()) return n->size();
             return 0; // empty
         }
 
@@ -182,12 +203,12 @@ class setmaps {
             return data_ == 0;
         }
 
-        bool contains(value_type d) const noexcept {
-            if (auto u = isa_uniq()) return d == *u;
+        bool contains(K d) const noexcept {
+            if (auto u = isa_uniq()) return d == key(*u);
 
-            if (auto data = isa_data()) {
+            if (auto data = isa_arr()) {
                 for (auto e : *data)
-                    if (d == *e) return true;
+                    if (d == key(e)) return true;
                 return false;
             }
 
@@ -196,11 +217,33 @@ class setmaps {
             return false;
         }
 
+        template<typename U = V,  typename = std::enable_if_t<!std::is_void_v<U>>>
+        const V operator[](K k) const {
+            if (auto u = isa_uniq()) { 
+                if (key(*u) == k) return u->second;
+                else                return {};
+            }
+            if (auto a = isa_arr()) {
+                for (auto e : *a)
+                    if (key(e) == k) return e.second;
+                return {};
+            }
+            if (auto n = isa_node()) {
+                node* cur = n;
+                while (n!=nullptr) {
+                    if (n->get_key() == k) return n->val().second;
+                    if (n->get_key() < k) n = n->left();
+                    else                  n = n->right();
+                }
+                return {};
+            }
+        }
+
     
-        class iterator {
+        struct iterator {
             using iterator_category = std::forward_iterator_tag;
             using difference_type   = std::ptrdiff_t;
-            using value_type        = value_type*;
+            using value_type        = value_type;
             using pointer           = value_type* const*;
             using reference         = value_type* const&;
 
@@ -212,12 +255,21 @@ class setmaps {
             constexpr iterator(value_type* d) noexcept
                 : tag_(Tag::Uniq)
                 , ptr_(std::bit_cast<uintptr_t>(d)) {}
-            constexpr iterator(value_type* const* elems) noexcept
+            constexpr iterator(arr* a) noexcept
                 : tag_(Tag::Data)
-                , ptr_(std::bit_cast<uintptr_t>(elems)) {}
+                , ptr_(std::bit_cast<uintptr_t>(a->arr_)) {}
+            constexpr iterator(arr* a, size_t size) noexcept //for end
+                : tag_(Tag::Data)
+                , ptr_(std::bit_cast<uintptr_t>(a->arr_+size)) {}
             constexpr iterator(node* n) noexcept
                 : tag_(Tag::Node)
-                , ptr_(std::bit_cast<uintptr_t>(n)) {}
+                , ptr_(std::bit_cast<uintptr_t>(n)) {
+                    node* cur = n;
+                    while (cur->has_left()) {
+                        stack_.push_back(cur);
+                        cur = cur->left();
+                    }
+                }
 
             iterator& clear() noexcept {
                 tag_ = Tag::Null;
@@ -266,15 +318,37 @@ class setmaps {
             }
             constexpr pointer operator->() const noexcept { return this->operator*(); }
         };
+
+        constexpr iterator begin() const noexcept {
+            if (auto u = isa_uniq()) return {u};
+            if (auto d = isa_arr()) return {d};
+            if (auto n = isa_node()) return {n};
+            return {};
+        }
+
+        constexpr iterator end() const noexcept {
+            if (auto data = isa_arr()) return iterator(data, data->size_);
+            return {};
+        }
+
+
     };
  
     setmap create() {
         return {};
     }
 
+    setmap create(value_type val) {
+        return {alloc_uniq(val).first};
+    }
+
     setmap insert(setmap sm, value_type val) {
         if (auto u = sm.isa_uniq()) {
-            if (val == *u) return {*u};
+            if (key(val) == key(*u)) {
+                if constexpr (is_set()) return sm;
+                else if (val.second == (*u).second) return sm;
+                else return {alloc_uniq(val).first};
+            }
 
             auto [data, state] = allocate(2);
             if (key(val) < key(*u)) data->arr_[0] = val, data->arr_[1] = *u;
@@ -283,7 +357,7 @@ class setmaps {
             return setmap(data);
         }
 
-        if (auto src = sm.isa_data()) {
+        if (auto src = sm.isa_arr()) {
             auto size = src->size_;
             if (size + 1 <= ARR_LIM) {
                 auto [dst, state] = allocate(size + 1);
@@ -293,16 +367,16 @@ class setmaps {
                 for (auto si = src->begin(), di = dst->begin(), se = src->end(); si != se || !ins; ++di) {
                     if (key(val) == key((*si))) { // already here
                         if constexpr (is_set()) {
-                            arena_->deallocate(state);
+                            arena_.deallocate(state);
                             return sm;
                         }
                         else {
                             if ((*si).second==val.second) {
-                                arena_->deallocate(state);
+                                arena_.deallocate(state);
                                 return sm;
                             }
                             else {
-                                *di = val, ins = true, ++si;
+                                *di = val, ins = true, ++si, dst->size_--;
                                 //would like to dealloc last elem of array but how :(
                                 continue;
                             }
@@ -326,11 +400,9 @@ class setmaps {
                             arena_.deallocate(state);
                             return sm;
                         }
-                        else {
-                            if (val.second == (*si).second) {
+                        else if (val.second == (*si).second) {
                                 arena_.deallocate(state);
                                 return sm;
-                            }
                         }
 
                     }
@@ -342,16 +414,16 @@ class setmaps {
                 // sort in ascending tids but 0 goes last
                 std::sort(dst->begin(), di);
 
-                return setmap(build_balanced(dst));
+                return setmap(build_balanced(dst->arr_));
             }
         }
 
         if (auto n = sm.isa_node()) {
-            if (n->contains(val)) return sm;
+            if (n->contains(key(val))) return sm;
             return setmap(insert(n, val));
         }
 
-        return {val}; //just so compiler doesnt complain, should be unreachable
+        return {alloc_uniq(val).first};
     }
 
     node* insert(node* n, value_type val) {
@@ -366,7 +438,7 @@ class setmaps {
         }
 
         node *l, *r;
-        if (!Compare{}(key(val),n->key())) {
+        if (!Compare{}(key(val),n->get_key())) {
             l = n->left();
             r = insert(n->right(), val);
         }
@@ -376,7 +448,7 @@ class setmaps {
         }
 
         if (l==n->left()&&r==n->right()) return n; //if both children are the same dont create new node
-        else return balance_node(make_node(l,r,n->val()).first);
+        else return node::balance_node(make_node(l,r,n->val()).first);
     }
 
     setmap merge(setmap sm1, setmap sm2);
