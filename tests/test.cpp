@@ -256,6 +256,73 @@ TEST_CASE("sets long strings") {
     CHECK(t2.contains("looooooooooooooooooooooooooooong string"));
 }
 
+TEST_CASE("set node mode") {
+    auto ms = setmaps<int>();
+    auto m0 = ms.create();
+    for (int i = 0; i<20; ++i) m0 = ms.insert(m0, i);
+    CHECK(m0.isa_node());
+    for (int i = 0; i<20; ++i) CHECK(m0.contains(i));
+    CHECK(m0.size() == 20);
+
+}
+
+TEST_CASE("map node mode") {
+    auto ms = setmaps<int, int>();
+    auto m0 = ms.create();
+    for (int i = 0; i<20; ++i) m0 = ms.insert(m0, {i,-1});
+    CHECK(m0.isa_node());
+    for (int i = 0; i<20; ++i) CHECK(m0.contains(i));
+    CHECK(m0.size() == 20);
+
+}
+
+TEST_CASE("map basics") {
+    auto ms = setmaps<int, int>();
+    auto m0 = ms.create();
+    m0 = ms.insert(m0,{1,1});
+    auto m1 = ms.insert(m0, {1, -1});
+    auto m2 = ms.insert(m1, {2, -2});
+    auto m3 = ms.insert(m2, {5,9});
+    auto m4 = ms.insert(m3, {1, 42});
+    CHECK(m1.contains(1));
+    CHECK(m2.contains(1));
+    CHECK(m2.contains(2));
+    CHECK(m3.contains(1));
+    CHECK(m3.contains(2));
+    CHECK(m3.contains(5));
+    CHECK(m4.contains(1));
+    CHECK(m4.contains(2));
+    CHECK(m4.contains(5));
+    CHECK(m1[1]==-1);
+    CHECK(m2[1]==-1);
+    CHECK(m2[2]==-2);
+    CHECK(m3[1]==-1);
+    CHECK(m3[5]==9);
+    CHECK(m3[2]==-2);
+    CHECK(m4[1]==42);
+    CHECK(m1.size()==1);
+    CHECK(m2.size()==2);
+    CHECK(m3.size()==3);
+    CHECK(m4.size()==3);
+}
+
+TEST_CASE("map iterator") {
+    auto ms = setmaps<int,int>();
+    auto m1 = ms.create({0, 0});
+    auto m2 = ms.insert(m1,{1,-1});
+    auto m3 = ms.insert(m2,{2,-2});
+    auto m4 = ms.insert(m3,{3,-3});
+    auto m5 = ms.insert(m4,{4,-4});
+    auto m6 = ms.insert(m5,{5,-5});
+    int i=0;
+    CHECK(m6.size()==6);
+    for (auto kv : m6) {
+        CHECK(m6[i]==-i);
+        CHECK(kv.second==-i);
+        i++;
+    }
+}
+
 // TEST_CASE("sets adding 1") {
 //     // auto m1 = setmaps<int>();
 //     // auto s1 = m1.create();
@@ -365,52 +432,7 @@ TEST_CASE("sets long strings") {
 //     // CHECK(!s1->contains_all({8.2,10.6,-55.2,-5.9,4.4,1.1}));
 // }
 
-TEST_CASE("map basics") {
-    auto ms = setmaps<int, int>();
-    auto m0 = ms.create();
-    m0 = ms.insert(m0,{1,1});
-    auto m1 = ms.insert(m0, {1, -1});
-    auto m2 = ms.insert(m1, {2, -2});
-    auto m3 = ms.insert(m2, {5,9});
-    auto m4 = ms.insert(m3, {1, 42});
-    CHECK(m1.contains(1));
-    CHECK(m2.contains(1));
-    CHECK(m2.contains(2));
-    CHECK(m3.contains(1));
-    CHECK(m3.contains(2));
-    CHECK(m3.contains(5));
-    CHECK(m4.contains(1));
-    CHECK(m4.contains(2));
-    CHECK(m4.contains(5));
-    CHECK(m1[1]==-1);
-    CHECK(m2[1]==-1);
-    CHECK(m2[2]==-2);
-    CHECK(m3[1]==-1);
-    CHECK(m3[5]==9);
-    CHECK(m3[2]==-2);
-    CHECK(m4[1]==42);
-    CHECK(m1.size()==1);
-    CHECK(m2.size()==2);
-    CHECK(m3.size()==3);
-    CHECK(m4.size()==3);
-}
 
-TEST_CASE("map iterator") {
-    auto ms = setmaps<int,int>();
-    auto m1 = ms.create({0, 0});
-    auto m2 = ms.insert(m1,{1,-1});
-    auto m3 = ms.insert(m2,{2,-2});
-    auto m4 = ms.insert(m3,{3,-3});
-    auto m5 = ms.insert(m4,{4,-4});
-    auto m6 = ms.insert(m5,{5,-5});
-    int i=0;
-    CHECK(m6.size()==6);
-    // for (auto kv : m6) {
-    //     CHECK(m6[i]==-i);
-    //     CHECK(kv->second==-i);
-    //     i++;
-    // }
-}
 
 // TEST_CASE("map contains_all") {
 //     // auto m1 = setmaps<double,int>({{5.1,1},{0.9,0},{-6,4},{4,5}});

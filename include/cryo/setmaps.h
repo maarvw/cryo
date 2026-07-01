@@ -23,7 +23,7 @@ class setmaps {
     static constexpr bool is_set() {return  std::is_void_v<V>; }
     static constexpr bool is_map() {return !std::is_void_v<V>; }
 
-    static K key(value_type val) {
+    static constexpr K key(value_type val) {
         if constexpr (is_set()) { return val;       }
         else                    { return val.first; }
     }
@@ -95,14 +95,14 @@ class setmaps {
             return n;
         }
 
-        bool contains(K val) {
+        bool contains(K val) const {
             if (val == key(val_)) return true;
             if (val <  key(val_)) {
-                if (has_left()) return false;
+                if (!has_left()) return false;
                 else            return left_->contains(val);
             }
             if (val >  key(val_)) {
-                if (has_right()) return false;
+                if (!has_right()) return false;
                 else             return right_->contains(val);
             }
         }
@@ -110,7 +110,7 @@ class setmaps {
        
     };
 
-    node* build_balanced(value_type* sorted, size_t lo=0, size_t hi=ARR_LIM-1) {
+    node* build_balanced(value_type* sorted, size_t lo=0, size_t hi=ARR_LIM+1) {
         if (lo >= hi) return nullptr;
         size_t mid = lo + (hi - lo) / 2;
         auto [n, _] = make_node(sorted[mid]);
@@ -256,10 +256,10 @@ class setmaps {
                 : tag_(Tag::Uniq)
                 , ptr_(std::bit_cast<uintptr_t>(d)) {}
             constexpr iterator(arr* a) noexcept
-                : tag_(Tag::Data)
+                : tag_(Tag::Array)
                 , ptr_(std::bit_cast<uintptr_t>(a->arr_)) {}
             constexpr iterator(arr* a, size_t size) noexcept //for end
-                : tag_(Tag::Data)
+                : tag_(Tag::Array)
                 , ptr_(std::bit_cast<uintptr_t>(a->arr_+size)) {}
             constexpr iterator(node* n) noexcept
                 : tag_(Tag::Node)
@@ -282,9 +282,10 @@ class setmaps {
 
             constexpr value_type operator*() const noexcept {
                 switch (tag_) {
-                    case Tag::Uniq:  return  std::bit_cast<value_type*>(ptr_);
-                    case Tag::Array: return *std::bit_cast<value_type* const*>(ptr_);
+                    case Tag::Uniq:  return *std::bit_cast<value_type*>(ptr_);
+                    case Tag::Array: return *std::bit_cast<value_type const*>(ptr_);
                     case Tag::Node:  return  std::bit_cast<node*>(ptr_)->val_;
+                    default:         return {};
                 }
             }
 
@@ -309,6 +310,7 @@ class setmaps {
                         stack_.pop_back();
                         return *this;
                     }
+                    default: return clear();
                 }
             }
             constexpr iterator operator++(int) noexcept {
@@ -409,9 +411,8 @@ class setmaps {
 
                     *di = *si;
                 }
-                *di = val; // put new element at last into dst->elems
+                *di = val; // put new element at last into dst->arr_
 
-                // sort in ascending tids but 0 goes last
                 std::sort(dst->begin(), di);
 
                 return setmap(build_balanced(dst->arr_));
