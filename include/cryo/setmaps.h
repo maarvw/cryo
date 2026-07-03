@@ -2,6 +2,7 @@
 
 #include </home/marvin/Uni/Bachelorarbeit/MimIR/submodules/fe/include/fe/arena.h>
 #include <deque>
+#include <stdexcept>
 #include <type_traits>
 
 
@@ -36,7 +37,9 @@ class setmaps {
         int balance_ = 0;    
 
         constexpr node(value_type val)  noexcept
-            : val_(val) {}
+            : val_(val)
+            , left_(nullptr)
+            , right_(nullptr) {}
 
         constexpr node(node* l, node* r, value_type val) noexcept
             : left_(l)
@@ -105,18 +108,24 @@ class setmaps {
                 if (!has_right()) return false;
                 else             return right_->contains(val);
             }
+            return false;
         }
 
        
     };
 
-    node* build_balanced(value_type* sorted, size_t lo=0, size_t hi=ARR_LIM+1) {
+    node* build_balanced(value_type* sorted, size_t lo, size_t hi) {
         if (lo >= hi) return nullptr;
         size_t mid = lo + (hi - lo) / 2;
-        auto [n, _] = make_node(sorted[mid]);
-        n->set_left(build_balanced(sorted, lo, mid));
-        n->set_right(build_balanced(sorted, mid+1, hi));
-        return n;
+        
+        // Copy value BEFORE any arena allocations happen
+        value_type val = sorted[mid];  // ← copy out first!
+        
+        node* left  = build_balanced(sorted, lo, mid);
+        node* right = build_balanced(sorted, mid + 1, hi);
+        
+        // Now allocate node after all recursive calls
+        return make_node(left, right, val).first;
     }
 
     struct arr {
@@ -124,9 +133,9 @@ class setmaps {
         value_type* arr_;
 
         constexpr arr() noexcept = default;
-        constexpr arr(size_t size) noexcept 
+        constexpr arr(size_t size, value_type* arr) noexcept 
             : size_(size)
-            , arr_(new value_type[size]) {}
+            , arr_(arr) {}
 
         constexpr value_type* begin() noexcept { return arr_; }
         constexpr value_type* end() noexcept { return arr_ + size_; }
@@ -138,8 +147,13 @@ class setmaps {
         auto bytes = sizeof(arr) + size * sizeof(value_type);
         auto state = arena_.state();
         auto buff  = arena_.allocate(bytes, alignof(arr));
-        auto data  = new (buff) arr(size);
-        return {data, state};
+        // auto data  = new (buff) arr(size);
+        // return {data, state};
+        value_type* data_ptr = reinterpret_cast<value_type*>(
+            static_cast<char*>(buff) + sizeof(arr)
+        );
+        auto* a = new (buff) arr(size, data_ptr);
+        return {a, state};
     }
 
     std::pair<node*, arena::State> make_node(node* l, node* r, value_type val) {
@@ -172,7 +186,7 @@ class setmaps {
 
         template<class T>
         constexpr T* ptr() const noexcept {
-            return std::bit_cast<T*>(data_ & (uintptr_t(-2) << uintptr_t(2)));
+            return std::bit_cast<T*>(data_ & ~uintptr_t(0b11));
         }
 
         constexpr value_type* isa_uniq() const noexcept { return tag() == Tag::Uniq  ? ptr<value_type>() : nullptr; }
@@ -187,9 +201,15 @@ class setmaps {
         constexpr setmap(const arr* data) noexcept
             : data_(uintptr_t(data) | uintptr_t(Tag::Array)) {} ///< Array setmap.
         constexpr setmap(node* node) noexcept
-            : data_(uintptr_t(node) | uintptr_t(Tag::Node)) {} ///< Node setmap.
+            : data_(uintptr_t(node) | uintptr_t(Tag::Node)) {
+                assert(node != nullptr);
+                assert((uintptr_t(node) & 0b11) == 0);  // must be aligned
+        } ///< Node setmap.
 
-        constexpr setmap& operator=(const setmap&) noexcept = default;
+        constexpr setmap& operator=(const setmap& other) noexcept {
+            data_ = other.data_;
+            return *this;
+        }
 
         constexpr size_t size() const noexcept {
             if (isa_uniq()) return 1;
@@ -219,31 +239,32 @@ class setmaps {
 
         template<typename U = V,  typename = std::enable_if_t<!std::is_void_v<U>>>
         const V operator[](K k) const {
+            //static_assert(!std::is_void_v<V>, "operator[] not supported for void");
             if (auto u = isa_uniq()) { 
                 if (key(*u) == k) return u->second;
-                else                return {};
+                else                throw std::runtime_error("nix hier");
             }
             if (auto a = isa_arr()) {
                 for (auto e : *a)
                     if (key(e) == k) return e.second;
-                return {};
+                throw std::runtime_error("nix hier");
             }
             if (auto n = isa_node()) {
-                node* cur = n;
                 while (n!=nullptr) {
                     if (n->get_key() == k) return n->val().second;
-                    if (n->get_key() < k) n = n->left();
+                    if (n->get_key() > k) n = n->left();
                     else                  n = n->right();
                 }
-                return {};
+                throw std::runtime_error("nix hier");
             }
+            throw std::runtime_error("nix hier");
         }
 
     
         struct iterator {
             using iterator_category = std::forward_iterator_tag;
             using difference_type   = std::ptrdiff_t;
-            using value_type        = value_type;
+            using value_type        = setmaps::value_type;
             using pointer           = value_type* const*;
             using reference         = value_type* const&;
 
@@ -334,6 +355,7 @@ class setmaps {
         }
 
 
+
     };
  
     setmap create() {
@@ -391,7 +413,7 @@ class setmaps {
                 }
 
                 return setmap(dst);
-            } else { // we need to switch from Data to Node
+            } else { // we need to switch from Array to Node
                 auto [dst, state] = allocate(size + 1);
 
                 // copy over
@@ -413,9 +435,10 @@ class setmaps {
                 }
                 *di = val; // put new element at last into dst->arr_
 
-                std::sort(dst->begin(), di);
+                std::sort(dst->begin(), dst->end());
 
-                return setmap(build_balanced(dst->arr_));
+                std::vector<value_type> tmp(dst->begin(), dst->end());
+                return setmap(build_balanced(tmp.data(), 0, tmp.size()));
             }
         }
 
@@ -431,7 +454,7 @@ class setmaps {
         if (n==nullptr) return make_node(val).first;
 
         if (key(n->val_)==key(val)) { //key already exists
-            if constexpr (is_set) return n; 
+            if constexpr (is_set()) return n; 
             else if (n->val().second==val.second) return n; 
 
             //map case: insert new value for existing key in the middle of the tree

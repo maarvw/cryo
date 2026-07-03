@@ -323,6 +323,54 @@ TEST_CASE("map iterator") {
     }
 }
 
+TEST_CASE("map []") {
+    auto ms = setmaps<int,int>();
+    auto m1 = ms.create({1,2});
+    m1 = ms.insert(m1, {2, 3});
+    m1 = ms.insert(m1, {3, 4});
+    m1 = ms.insert(m1, {4, 5});
+    m1 = ms.insert(m1, {5, 6});
+    m1 = ms.insert(m1, {6, 7});
+    for (int i=1;i<=6;++i) CHECK(m1[i]==i+1);
+    CHECK(m1[9]==0);
+}
+
+TEST_CASE("map ptrs") {
+    auto ms = setmaps<int*,int*>();
+    int i1 = 1, i2=2,i3=3,i4=4,i5=5,i6=6,i7=7;
+    auto m1 = ms.create({&i1,&i2});
+    m1 = ms.insert(m1, {&i2, &i3});
+    m1 = ms.insert(m1, {&i3, &i4});
+    m1 = ms.insert(m1, {&i4, &i5});
+    m1 = ms.insert(m1, {&i5, &i6});
+    m1 = ms.insert(m1, {&i6, &i7});
+    CHECK(m1[&i1]==&i2);
+    CHECK(m1[&i2]==&i3);
+    CHECK(m1[&i3]==&i4);
+    CHECK(m1[&i4]==&i5);
+    CHECK(m1[&i5]==&i6);
+    CHECK(m1[&i6]==&i7);
+    CHECK(m1[&i7]==nullptr);
+}
+
+TEST_CASE("map const ptrs") {
+    auto ms = setmaps<const int*, const int*>();
+    int i1 = 1, i2=2,i3=3,i4=4,i5=5,i6=6,i7=7;
+    auto m1 = ms.create({&i1,&i2});
+    m1 = ms.insert(m1, {&i2, &i3});
+    m1 = ms.insert(m1, {&i3, &i4});
+    m1 = ms.insert(m1, {&i4, &i5});
+    m1 = ms.insert(m1, {&i5, &i6});
+    m1 = ms.insert(m1, {&i6, &i7});
+    CHECK(m1[&i1]==&i2);
+    CHECK(m1[&i2]==&i3);
+    CHECK(m1[&i3]==&i4);
+    CHECK(m1[&i4]==&i5);
+    CHECK(m1[&i5]==&i6);
+    CHECK(m1[&i6]==&i7);
+    CHECK(m1[&i7]==nullptr);
+}
+
 // TEST_CASE("sets adding 1") {
 //     // auto m1 = setmaps<int>();
 //     // auto s1 = m1.create();
