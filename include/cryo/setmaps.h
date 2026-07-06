@@ -48,6 +48,8 @@ class setmaps {
                 recalculate_balance();
         }
 
+        ~node() {}
+
         node* left()     const { return left_;  }
         node* right()    const { return right_; }
         value_type val() const { return val_;   }
@@ -73,30 +75,30 @@ class setmaps {
             balance_ = rh-lh;
         }
 
-        static node* left_rotate(node* n) {
-            node* r =  n->right_;  
-            node* rl = r->left_;
-            n->set_right(rl);
-            r->set_left(n);
-            return r;
-        }
-        static node* right_rotate(node* n) {
-            node* l  = n->left_;  
-            node* lr = l->right_;
-            n->set_left(lr);
-            l->set_right(n);
-            return l;
-        }
-        static node* balance_node(node* n) {
-            int bal = n->balance_;
-            if (bal<-1) {
-                return right_rotate(n);
-            }
-            else if (bal>1) {
-                return left_rotate(n);
-            }
-            return n;
-        }
+        // static node* left_rotate(node* n) {
+        //     node* r =  n->right_;  
+        //     node* rl = r->left_;
+        //     n->set_right(rl);
+        //     r->set_left(n);
+        //     return r;
+        // }
+        // static node* right_rotate(node* n) {
+        //     node* l  = n->left_;  
+        //     node* lr = l->right_;
+        //     n->set_left(lr);
+        //     l->set_right(n);
+        //     return l;
+        // }
+        // static node* balance_node(node* n) {
+        //     int bal = n->balance_;
+        //     if (bal<-1) {
+        //         return right_rotate(n);
+        //     }
+        //     else if (bal>1) {
+        //         return left_rotate(n);
+        //     }
+        //     return n;
+        // }
 
         bool contains(K val) const {
             if (val == key(val_)) return true;
@@ -118,13 +120,11 @@ class setmaps {
         if (lo >= hi) return nullptr;
         size_t mid = lo + (hi - lo) / 2;
         
-        // Copy value BEFORE any arena allocations happen
-        value_type val = sorted[mid];  // ← copy out first!
+        value_type val = sorted[mid];  
         
         node* left  = build_balanced(sorted, lo, mid);
         node* right = build_balanced(sorted, mid + 1, hi);
         
-        // Now allocate node after all recursive calls
         return make_node(left, right, val).first;
     }
 
@@ -136,6 +136,8 @@ class setmaps {
         constexpr arr(size_t size, value_type* arr) noexcept 
             : size_(size)
             , arr_(arr) {}
+
+        ~arr() {}
 
         constexpr value_type* begin() noexcept { return arr_; }
         constexpr value_type* end() noexcept { return arr_ + size_; }
@@ -152,12 +154,12 @@ class setmaps {
         value_type* data_ptr = reinterpret_cast<value_type*>(
             static_cast<char*>(buff) + sizeof(arr)
         );
-        auto* a = new (buff) arr(size, data_ptr);
+        auto a = new (buff) arr(size, data_ptr);
         return {a, state};
     }
 
     std::pair<node*, arena::State> make_node(node* l, node* r, value_type val) {
-        auto bytes = sizeof(node) + sizeof(value_type);
+        auto bytes = sizeof(node);
         auto state = arena_.state();
         auto buff  = arena_.allocate(bytes, alignof(node));
         auto data = new (buff) node(l, r, val);
@@ -205,6 +207,8 @@ class setmaps {
                 assert(node != nullptr);
                 assert((uintptr_t(node) & 0b11) == 0);  // must be aligned
         } ///< Node setmap.
+
+        ~setmap() {}
 
         constexpr setmap& operator=(const setmap& other) noexcept {
             data_ = other.data_;
@@ -366,6 +370,32 @@ class setmaps {
         return {alloc_uniq(val).first};
     }
 
+    node* left_rotate(node* n) {
+        node* r  = n->right_;
+        node* rl = r->left_;
+        node* new_n = make_node(n->left_, rl, n->val_).first;
+        node* new_r = make_node(new_n, r->right_, r->val_).first;
+        return new_r;
+    }
+
+    node* right_rotate(node* n) {
+        node* l  = n->left_;
+        node* lr = l->right_;
+        node* new_n = make_node(lr, n->right_, n->val_).first;
+        node* new_l = make_node(l->left_, new_n, l->val_).first;
+        return new_l;
+    }
+
+    node* balance_node(node* n) {
+        int bal = n->balance_;
+        if (bal < -1) {
+            return right_rotate(n);
+        } else if (bal > 1) {
+            return left_rotate(n);
+        }
+        return n;
+    }
+
     setmap insert(setmap sm, value_type val) {
         if (auto u = sm.isa_uniq()) {
             if (key(val) == key(*u)) {
@@ -389,14 +419,14 @@ class setmaps {
                 // copy over and insert new element
                 bool ins = false;
                 for (auto si = src->begin(), di = dst->begin(), se = src->end(); si != se || !ins; ++di) {
-                    if (key(val) == key((*si))) { // already here
+                    if (si!=se && key(val) == key((*si))) { // already here
                         if constexpr (is_set()) {
-                            arena_.deallocate(state);
+                            //arena_.deallocate(state);
                             return sm;
                         }
                         else {
                             if ((*si).second==val.second) {
-                                arena_.deallocate(state);
+                                //arena_.deallocate(state);
                                 return sm;
                             }
                             else {
@@ -419,13 +449,13 @@ class setmaps {
                 // copy over
                 auto di = dst->begin();
                 for (auto si = src->begin(), se = src->end(); si != se; ++si, ++di) {
-                    if (key(val) == key(*si)) { // already here
+                    if (si != se && key(val) == key(*si)) { // already here
                         if constexpr (is_set()) {
-                            arena_.deallocate(state);
+                            //arena_.deallocate(state);
                             return sm;
                         }
                         else if (val.second == (*si).second) {
-                                arena_.deallocate(state);
+                                //arena_.deallocate(state);
                                 return sm;
                         }
 
@@ -472,7 +502,7 @@ class setmaps {
         }
 
         if (l==n->left()&&r==n->right()) return n; //if both children are the same dont create new node
-        else return node::balance_node(make_node(l,r,n->val()).first);
+        else return balance_node(make_node(l,r,n->val()).first);
     }
 
     setmap merge(setmap sm1, setmap sm2);
