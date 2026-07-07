@@ -521,7 +521,10 @@ class setmaps {
         }
     };
 
-
+    friend void swap(setmaps& a, setmaps& b) noexcept {
+        using std::swap;
+        swap(a.arena_, b.arena_); // ADL -> fe::swap(Arena&, Arena&); handles into it stay valid
+    }
 
 };
 
