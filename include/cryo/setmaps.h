@@ -1,6 +1,6 @@
 #pragma once
 
-#include </home/marvin/Uni/Bachelorarbeit/MimIR/submodules/fe/include/fe/arena.h>
+#include <fe/arena.h>
 #include <deque>
 #include <stdexcept>
 #include <type_traits>
@@ -223,7 +223,6 @@ class setmaps {
         }
 
         constexpr bool empty() const noexcept {
-            assert(tag() != Tag::Node || !ptr<node>()->is_root());
             return data_ == 0;
         }
 
@@ -354,7 +353,7 @@ class setmaps {
         }
 
         constexpr iterator end() const noexcept {
-            if (auto data = isa_arr()) return iterator(data, data->size_);
+            if (auto data = isa_arr()) return {data, data->size_};
             return {};
         }
 
