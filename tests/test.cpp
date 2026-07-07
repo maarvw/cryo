@@ -1,3 +1,5 @@
+#include <map>
+#include <random>
 #include <string>
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 
@@ -369,6 +371,92 @@ TEST_CASE("map const ptrs") {
     CHECK(m1[&i5]==&i6);
     CHECK(m1[&i6]==&i7);
     CHECK(m1[&i7]==nullptr);
+}
+
+TEST_CASE("map value update: uniq") {
+    auto ms = setmaps<int, int>();
+    auto m0 = ms.create();
+    m0 = ms.insert(m0, {1, 10});
+    CHECK(m0.isa_uniq());
+    auto m1 = ms.insert(m0, {1, 20}); // update existing key
+    CHECK(m1.isa_uniq());
+    CHECK(m1.size() == 1);
+    CHECK(m1[1] == 20);
+    CHECK(m0[1] == 10); // persistent: old version unchanged
+}
+
+TEST_CASE("map value update: array") {
+    auto ms = setmaps<int, int>();
+    auto m0 = ms.create();
+    for (int i = 0; i < 5; ++i) m0 = ms.insert(m0, {i, i});
+    CHECK(m0.isa_arr());
+    auto m1 = ms.insert(m0, {2, 99}); // update in the middle
+    CHECK(m1.isa_arr());
+    CHECK(m1.size() == 5); // no growth, no duplicate
+    CHECK(m1[2] == 99);
+    for (int i = 0; i < 5; ++i)
+        if (i != 2) CHECK(m1[i] == i);
+    CHECK(m0[2] == 2); // persistent: old version unchanged
+}
+
+TEST_CASE("map value update: full array stays array (no dup on convert)") {
+    auto ms = setmaps<int, int>();
+    auto m0 = ms.create();
+    for (int i = 0; i < 16; ++i) m0 = ms.insert(m0, {i, i}); // fill array to ARR_LIM
+    CHECK(m0.isa_arr());
+    CHECK(m0.size() == 16);
+    auto m1 = ms.insert(m0, {7, 777}); // update existing key while array is full
+    CHECK(m1.size() == 16);            // must NOT grow to 17 / duplicate
+    CHECK(m1[7] == 777);
+    for (int i = 0; i < 16; ++i)
+        if (i != 7) CHECK(m1[i] == i);
+}
+
+TEST_CASE("map value update: node") {
+    auto ms = setmaps<int, int>();
+    auto m0 = ms.create();
+    for (int i = 0; i < 40; ++i) m0 = ms.insert(m0, {i, i});
+    CHECK(m0.isa_node());
+    CHECK(m0.size() == 40);
+    auto m1 = ms.insert(m0, {8, 888}); // update existing key in node mode
+    CHECK(m1.isa_node());
+    CHECK(m1.size() == 40); // no growth
+    CHECK(m1[8] == 888);
+    for (int i = 0; i < 40; ++i)
+        if (i != 8) CHECK(m1[i] == i);
+    CHECK(m0[8] == 8); // persistent: old version unchanged
+}
+
+TEST_CASE("map randomized vs std::map") {
+    for (int keyspace : {8, 16, 17, 20, 40, 128}) {
+        for (long seed = 1; seed <= 300; ++seed) {
+            std::mt19937_64 rng(seed * 1000 + keyspace);
+            auto ms = setmaps<long, long>();
+            auto sm = ms.create();
+            std::map<long, long> ref;
+            int ops = 1 + (int)(rng() % 80);
+            for (int o = 0; o < ops; ++o) {
+                long k = 1 + (long)(rng() % keyspace);
+                long v = 1 + (long)(rng() % 100000);
+                sm      = ms.insert(sm, {k, v}); // heavy on updates for small keyspaces
+                ref[k]  = v;
+            }
+            CHECK(sm.size() == ref.size());
+            for (auto& [k, v] : ref) {
+                CHECK(sm.contains(k));
+                CHECK(sm[k] == v);
+            }
+        }
+    }
+}
+
+TEST_CASE("set idempotent insert") {
+    auto ms = setmaps<int>();
+    auto m0 = ms.create();
+    for (int i = 0; i < 40; ++i) m0 = ms.insert(m0, i);
+    auto m1 = ms.insert(m0, 8); // re-insert existing element
+    CHECK(m1.size() == 40);
+    CHECK(m1.contains(8));
 }
 
 // TEST_CASE("sets adding 1") {

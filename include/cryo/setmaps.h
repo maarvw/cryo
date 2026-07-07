@@ -243,14 +243,16 @@ class setmaps {
         template<typename U = V,  typename = std::enable_if_t<!std::is_void_v<U>>>
         const V operator[](K k) const {
             //static_assert(!std::is_void_v<V>, "operator[] not supported for void");
-            if (auto u = isa_uniq()) { 
+            // Missing key yields a default-constructed value (0 / nullptr); guard with contains() if you
+            // need to distinguish "absent" from "mapped to default".
+            if (auto u = isa_uniq()) {
                 if (key(*u) == k) return u->second;
-                else                throw std::runtime_error("nix hier");
+                return V{};
             }
             if (auto a = isa_arr()) {
                 for (auto e : *a)
                     if (key(e) == k) return e.second;
-                throw std::runtime_error("nix hier");
+                return V{};
             }
             if (auto n = isa_node()) {
                 while (n!=nullptr) {
@@ -258,9 +260,9 @@ class setmaps {
                     if (n->get_key() > k) n = n->left();
                     else                  n = n->right();
                 }
-                throw std::runtime_error("nix hier");
+                return V{};
             }
-            throw std::runtime_error("nix hier");
+            return V{};
         }
 
     
@@ -412,29 +414,31 @@ class setmaps {
 
         if (auto src = sm.isa_arr()) {
             auto size = src->size_;
+
+            // If the key already exists, update the value in place (or no-op) - never grow.
+            // Handling updates here keeps the grow/convert paths below dealing only with *new* keys,
+            // which avoids both dropping map updates and creating duplicate keys during Array->Node.
+            for (auto si = src->begin(), se = src->end(); si != se; ++si) {
+                if (key(val) == key(*si)) {
+                    if constexpr (is_set()) {
+                        return sm;
+                    } else {
+                        if ((*si).second == val.second) return sm;
+                        auto [dst, state] = allocate(size);
+                        auto di = dst->begin();
+                        for (auto s = src->begin(); s != se; ++s, ++di) *di = (key(*s) == key(val)) ? val : *s;
+                        return setmap(dst);
+                    }
+                }
+            }
+
+            // key is new from here on
             if (size + 1 <= ARR_LIM) {
                 auto [dst, state] = allocate(size + 1);
 
-                // copy over and insert new element
+                // copy over and insert new element in sorted position
                 bool ins = false;
                 for (auto si = src->begin(), di = dst->begin(), se = src->end(); si != se || !ins; ++di) {
-                    if (si!=se && key(val) == key((*si))) { // already here
-                        if constexpr (is_set()) {
-                            //arena_.deallocate(state);
-                            return sm;
-                        }
-                        else {
-                            if ((*si).second==val.second) {
-                                //arena_.deallocate(state);
-                                return sm;
-                            }
-                            else {
-                                *di = val, ins = true, ++si, dst->size_--;
-                                //would like to dealloc last elem of array but how :(
-                                continue;
-                            }
-                        }
-                    }
                     if (!ins && (si == se || key(val) < key(*si)))
                         *di = val, ins = true;
                     else
@@ -445,23 +449,9 @@ class setmaps {
             } else { // we need to switch from Array to Node
                 auto [dst, state] = allocate(size + 1);
 
-                // copy over
+                // copy over, then append the new element
                 auto di = dst->begin();
-                for (auto si = src->begin(), se = src->end(); si != se; ++si, ++di) {
-                    if (si != se && key(val) == key(*si)) { // already here
-                        if constexpr (is_set()) {
-                            //arena_.deallocate(state);
-                            return sm;
-                        }
-                        else if (val.second == (*si).second) {
-                                //arena_.deallocate(state);
-                                return sm;
-                        }
-
-                    }
-
-                    *di = *si;
-                }
+                for (auto si = src->begin(), se = src->end(); si != se; ++si, ++di) *di = *si;
                 *di = val; // put new element at last into dst->arr_
 
                 std::sort(dst->begin(), dst->end());
@@ -472,7 +462,7 @@ class setmaps {
         }
 
         if (auto n = sm.isa_node()) {
-            if (n->contains(key(val))) return sm;
+            // insert() handles new keys, no-ops, and value updates for existing keys.
             return setmap(insert(n, val));
         }
 
