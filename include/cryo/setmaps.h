@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <fe/arena.h>
 #include <deque>
 #include <stdexcept>
@@ -10,12 +11,12 @@ using arena = fe::Arena;
 
 
 namespace cryo {
-    
+
 template<typename K, typename V = void, size_t ARR_LIM = 16, typename Compare = std::less<K>>
 class setmaps {
     public:
     using arena = fe::Arena;
-    
+
     using value_type = std::conditional_t<std::is_void_v<V>, K, std::pair<K, V>>;
     using mapped_type = V;
 
@@ -34,7 +35,7 @@ class setmaps {
         node* right_;
         value_type val_;
         int height_ = 1;
-        int balance_ = 0;    
+        int balance_ = 0;
 
         constexpr node(value_type val)  noexcept
             : val_(val)
@@ -76,14 +77,14 @@ class setmaps {
         }
 
         // static node* left_rotate(node* n) {
-        //     node* r =  n->right_;  
+        //     node* r =  n->right_;
         //     node* rl = r->left_;
         //     n->set_right(rl);
         //     r->set_left(n);
         //     return r;
         // }
         // static node* right_rotate(node* n) {
-        //     node* l  = n->left_;  
+        //     node* l  = n->left_;
         //     node* lr = l->right_;
         //     n->set_left(lr);
         //     l->set_right(n);
@@ -113,18 +114,18 @@ class setmaps {
             return false;
         }
 
-       
+
     };
 
     node* build_balanced(value_type* sorted, size_t lo, size_t hi) {
         if (lo >= hi) return nullptr;
         size_t mid = lo + (hi - lo) / 2;
-        
-        value_type val = sorted[mid];  
-        
+
+        value_type val = sorted[mid];
+
         node* left  = build_balanced(sorted, lo, mid);
         node* right = build_balanced(sorted, mid + 1, hi);
-        
+
         return make_node(left, right, val).first;
     }
 
@@ -133,7 +134,7 @@ class setmaps {
         value_type* arr_;
 
         constexpr arr() noexcept = default;
-        constexpr arr(size_t size, value_type* arr) noexcept 
+        constexpr arr(size_t size, value_type* arr) noexcept
             : size_(size)
             , arr_(arr) {}
 
@@ -207,13 +208,15 @@ class setmaps {
                 assert(node != nullptr);
                 assert((uintptr_t(node) & 0b11) == 0);  // must be aligned
         } ///< Node setmap.
-
-        ~setmap() {}
+        constexpr setmap(uintptr_t data) noexcept
+            : data_(data) {}
 
         constexpr setmap& operator=(const setmap& other) noexcept {
             data_ = other.data_;
             return *this;
         }
+
+        constexpr uintptr_t data() const noexcept { return data_; }
 
         constexpr size_t size() const noexcept {
             if (isa_uniq()) return 1;
@@ -265,7 +268,7 @@ class setmaps {
             return V{};
         }
 
-    
+
         struct iterator {
             using iterator_category = std::forward_iterator_tag;
             using difference_type   = std::ptrdiff_t;
@@ -362,7 +365,7 @@ class setmaps {
 
 
     };
- 
+
     setmap create() {
         return {};
     }
@@ -473,8 +476,8 @@ class setmaps {
         if (n==nullptr) return make_node(val).first;
 
         if (key(n->val_)==key(val)) { //key already exists
-            if constexpr (is_set()) return n; 
-            else if (n->val().second==val.second) return n; 
+            if constexpr (is_set()) return n;
+            else if (n->val().second==val.second) return n;
 
             //map case: insert new value for existing key in the middle of the tree
             return make_node(n->left(),n->right(),val).first;
