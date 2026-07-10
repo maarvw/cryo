@@ -1,9 +1,11 @@
 #pragma once
 
 #include <cstdint>
+#include <alloca.h>
 #include <fe/arena.h>
+#include <algorithm>
+#include <bit>
 #include <deque>
-#include <stdexcept>
 #include <type_traits>
 
 
@@ -117,7 +119,7 @@ class setmaps {
 
     };
 
-    node* build_balanced(value_type* sorted, size_t lo, size_t hi) {
+    node* build_balanced(std::vector<value_type> sorted, size_t lo, size_t hi) {
         if (lo >= hi) return nullptr;
         size_t mid = lo + (hi - lo) / 2;
 
@@ -254,7 +256,7 @@ class setmaps {
             }
             if (auto a = isa_arr()) {
                 for (auto e : *a)
-                    if (key(e) == k) return e.second;
+                if (key(e) == k) return e.second;
                 return V{};
             }
             if (auto n = isa_node()) {
@@ -267,48 +269,48 @@ class setmaps {
             }
             return V{};
         }
-
-
+        
+        
         struct iterator {
             using iterator_category = std::forward_iterator_tag;
             using difference_type   = std::ptrdiff_t;
             using value_type        = setmaps::value_type;
             using pointer           = value_type* const*;
             using reference         = value_type* const&;
-
+            
             Tag tag_;
             uintptr_t ptr_;
             std::deque<node*> stack_;
-
+            
             constexpr iterator() noexcept = default;
             constexpr iterator(value_type* d) noexcept
-                : tag_(Tag::Uniq)
-                , ptr_(std::bit_cast<uintptr_t>(d)) {}
+            : tag_(Tag::Uniq)
+            , ptr_(std::bit_cast<uintptr_t>(d)) {}
             constexpr iterator(arr* a) noexcept
-                : tag_(Tag::Array)
-                , ptr_(std::bit_cast<uintptr_t>(a->arr_)) {}
+            : tag_(Tag::Array)
+            , ptr_(std::bit_cast<uintptr_t>(a->arr_)) {}
             constexpr iterator(arr* a, size_t size) noexcept //for end
-                : tag_(Tag::Array)
-                , ptr_(std::bit_cast<uintptr_t>(a->arr_+size)) {}
+            : tag_(Tag::Array)
+            , ptr_(std::bit_cast<uintptr_t>(a->arr_+size)) {}
             constexpr iterator(node* n) noexcept
-                : tag_(Tag::Node)
-                , ptr_(std::bit_cast<uintptr_t>(n)) {
-                    node* cur = n;
-                    while (cur->has_left()) {
-                        stack_.push_back(cur);
-                        cur = cur->left();
-                    }
+            : tag_(Tag::Node) {
+                node* cur = n;
+                while (cur->has_left()) {
+                    stack_.push_back(cur);
+                    cur = cur->left();
                 }
-
+                ptr_ = std::bit_cast<uintptr_t>(cur);
+            }
+            
             iterator& clear() noexcept {
                 tag_ = Tag::Null;
                 ptr_ = 0;
                 return *this;
             }
-
+            
             constexpr bool operator==(iterator other) const noexcept { return this->tag_ == other.tag_ && this->ptr_ == other.ptr_; }
             constexpr bool operator!=(iterator other) const noexcept { return this->tag_ != other.tag_ || this->ptr_ != other.ptr_; }
-
+            
             constexpr value_type operator*() const noexcept {
                 switch (tag_) {
                     case Tag::Uniq:  return *std::bit_cast<value_type*>(ptr_);
@@ -317,7 +319,8 @@ class setmaps {
                     default:         return {};
                 }
             }
-
+            constexpr pointer operator->() const noexcept { return this->operator*(); }
+            
             constexpr iterator& operator++() noexcept {
                 switch (tag_) {
                     case Tag::Uniq:  return clear();
@@ -326,16 +329,15 @@ class setmaps {
                         auto n = std::bit_cast<node*>(ptr_);
                         if (n->has_right()) {
                             n=n->right();
-                            stack_.push_back(n);
                             while (n->has_left()) {
-                                n = n->left();
                                 stack_.push_back(n);
+                                n = n->left();
                             }
-                            stack_.pop_back();
+                            ptr_ = std::bit_cast<uintptr_t>(n);
                             return *this;
                         }
                         if (stack_.empty()) return clear();
-                        n=stack_.back();
+                        ptr_ = std::bit_cast<uintptr_t>(stack_.back());
                         stack_.pop_back();
                         return *this;
                     }
@@ -347,7 +349,6 @@ class setmaps {
                 this->operator++();
                 return res;
             }
-            constexpr pointer operator->() const noexcept { return this->operator*(); }
         };
 
         constexpr iterator begin() const noexcept {
@@ -460,7 +461,7 @@ class setmaps {
                 std::sort(dst->begin(), dst->end());
 
                 std::vector<value_type> tmp(dst->begin(), dst->end());
-                return setmap(build_balanced(tmp.data(), 0, tmp.size()));
+                return {build_balanced(tmp, 0, tmp.size())};
             }
         }
 
@@ -497,7 +498,44 @@ class setmaps {
         else return balance_node(make_node(l,r,n->val()).first);
     }
 
-    setmap merge(setmap sm1, setmap sm2);
+    setmap merge(setmap sm1, setmap sm2) {
+
+        if (sm1.empty()) return sm2;
+        if (sm2.empty()) return sm1;
+
+        if (auto u = sm1.isa_uniq()) return insert(sm2, *u);
+        if (auto u = sm2.isa_uniq()) return insert(sm1, *u);
+
+        //create sorted vector from both setmaps 
+        std::vector<value_type> merged;
+        auto i1 = sm1.begin(), i2 = sm2.begin(), e1 = sm1.end(), e2 = sm2.end();
+        while (i1!=e1&&i2!=e2) {
+            if (key(*i1) == key(*i2)) {
+                merged.push_back(*i2);
+                ++i1, ++i2;
+            }
+            else if (key(*i1) < key(*i2)) {
+                merged.push_back(*i1);
+                ++i1;
+            }
+            else {
+                merged.push_back(*i2);
+                ++i2;
+            }
+        }
+        //insert remainder of larger setmap
+        while (i1!=e1) { merged.push_back(*i1); ++i1; }
+        while (i2!=e2) { merged.push_back(*i2); ++i2; }
+
+        if (merged.size()<=ARR_LIM) {
+            auto [arr, state] = allocate(merged.size());
+            std::copy(merged.begin(), merged.end(), arr->begin());
+            return {arr};
+        }
+
+        //node mode
+        return {build_balanced(merged, 0, merged.size())};
+    }
 
 
 
