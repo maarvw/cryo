@@ -324,7 +324,7 @@ class setmaps {
             constexpr iterator& operator++() noexcept {
                 switch (tag_) {
                     case Tag::Uniq:  return clear();
-                    case Tag::Array: return ptr_ = std::bit_cast<uintptr_t>(std::bit_cast<value_type* const*>(ptr_) + 1), *this;
+                    case Tag::Array: return ptr_ = std::bit_cast<uintptr_t>(std::bit_cast<value_type const*>(ptr_) + 1), *this;
                     case Tag::Node: {
                         auto n = std::bit_cast<node*>(ptr_);
                         if (n->has_right()) {
