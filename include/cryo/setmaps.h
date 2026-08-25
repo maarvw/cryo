@@ -451,16 +451,10 @@ class setmaps {
 
                 return setmap(dst);
             } else { // we need to switch from Array to Node
-                auto [dst, state] = allocate(size + 1);
+                std::vector<value_type> tmp(src->begin(), src->end());
+                tmp.push_back(val);
+                std::sort(tmp.begin(), tmp.end());
 
-                // copy over, then append the new element
-                auto di = dst->begin();
-                for (auto si = src->begin(), se = src->end(); si != se; ++si, ++di) *di = *si;
-                *di = val; // put new element at last into dst->arr_
-
-                std::sort(dst->begin(), dst->end());
-
-                std::vector<value_type> tmp(dst->begin(), dst->end());
                 return {build_balanced(tmp, 0, tmp.size())};
             }
         }
